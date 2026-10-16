@@ -24,7 +24,7 @@ const {
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const siteOrigin = 'https://aph3xx.github.io';
+const siteOrigin = Astro.site?.origin || 'https://aph3xx.github.io';
 const normalizePath = (value: string) => value === '/' ? '/' : `/${value.replace(/^\/+|\/+$/g, '')}/`;
 const canonical = `${siteOrigin}${base}${normalizePath(path)}`;
 const russianUrl = canonical;

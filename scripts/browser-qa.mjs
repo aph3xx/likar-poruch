@@ -2,8 +2,9 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs/promises';
 
 const base=process.env.QA_BASE_URL||'http://127.0.0.1:4321/likar-poruch';
+const resolverRules=process.env.QA_HOST_RESOLVER_RULES;
 await fs.mkdir('artifacts/qa',{recursive:true});
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,args:resolverRules?[`--host-resolver-rules=${resolverRules}`]:[]});
 const viewports=[{name:'mobile-360',width:360,height:800},{name:'tablet-768',width:768,height:900},{name:'desktop-1440',width:1440,height:900}];
 try{
  for(const viewport of viewports){

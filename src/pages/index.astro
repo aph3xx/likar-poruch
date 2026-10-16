@@ -17,9 +17,10 @@ const faq = [
   ['Які обстеження можна пройти на місці?', 'Доступні ЕКГ із розшифруванням, вимірювання тиску і пульсу, швидкі тести, визначення глюкози та холестерину, отоскопія, перевірка гостроти зору й антропометрія.'],
   ['Що робити у невідкладному стані?', 'За загрози життю не чекайте планового прийому. Телефонуйте 103 або 112.']
 ];
+const siteOrigin = Astro.site?.origin || 'https://aph3xx.github.io';
 const schema = [
-  {'@context':'https://schema.org','@type':'MedicalClinic','name':site.name,'url':`https://aph3xx.github.io${base}/`,'telephone':site.phone,'description':site.tagline,'address':{'@type':'PostalAddress','streetAddress':'вул. Хоральська, 1А','addressCountry':'UA'},'medicalSpecialty':['PrimaryCare','Endocrinologic']},
-  {'@context':'https://schema.org','@type':'WebSite','name':site.name,'url':`https://aph3xx.github.io${base}/`,'inLanguage':'uk-UA'},
+  {'@context':'https://schema.org','@type':'MedicalClinic','name':site.name,'url':`${siteOrigin}${base}/`,'telephone':site.phone,'description':site.tagline,'address':{'@type':'PostalAddress','streetAddress':'вул. Хоральська, 1А','addressCountry':'UA'},'medicalSpecialty':['PrimaryCare','Endocrinologic']},
+  {'@context':'https://schema.org','@type':'WebSite','name':site.name,'url':`${siteOrigin}${base}/`,'inLanguage':'uk-UA'},
   {'@context':'https://schema.org','@type':'FAQPage','mainEntity':faq.map(([name,text])=>({'@type':'Question','name':name,'acceptedAnswer':{'@type':'Answer','text':text}}))}
 ];
 ---
