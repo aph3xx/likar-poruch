@@ -84,6 +84,25 @@ try {
     assert(focusStyle.width >= 2 && focusStyle.style !== 'none', `${width}px: visible focus indicator missing`);
     assert(focusStyle.targetHeight >= 44, `${width}px: header brand target is ${focusStyle.targetHeight}px high`);
 
+    const undersizedStandaloneTargets = await page.locator([
+      '.hero-practice a',
+      '.service-card > a',
+      '.text-link',
+      '.visit-phone',
+      '.form-actions a',
+    ].join(', ')).evaluateAll((elements) => elements
+      .map((element) => ({
+        text: (element.textContent || '').trim().replace(/\s+/g, ' '),
+        height: element.getBoundingClientRect().height,
+      }))
+      .filter(({ height }) => height < 44));
+    assert(
+      undersizedStandaloneTargets.length === 0,
+      `${width}px: standalone targets below 44px: ${undersizedStandaloneTargets.map(({ text, height }) => `${text} (${height}px)`).join(', ')}`,
+    );
+    const consentLabelHeight = await page.locator('.consent-field label').evaluate((element) => element.getBoundingClientRect().height);
+    assert(consentLabelHeight >= 44, `${width}px: consent label target is ${consentLabelHeight}px high`);
+
     const expectedServiceColumns = width < 640 ? 1 : width < 1024 ? 2 : 3;
     assert(geometry.serviceColumns === expectedServiceColumns, `${width}px: expected ${expectedServiceColumns} service columns, got ${geometry.serviceColumns}`);
     assert(geometry.heroColumns === (width < 1024 ? 1 : 2), `${width}px: incorrect hero columns`);
