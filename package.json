@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "npm run build && node scripts/validate-build.mjs && node scripts/validate-consent.mjs && node --test scripts/validate-build.test.mjs",
-    "qa:browser": "node scripts/browser-qa.mjs"
+    "qa:browser": "node scripts/browser-qa.mjs",
+    "deploy:sur": "bash scripts/deploy-sur.sh"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.19",
