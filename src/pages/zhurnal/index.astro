@@ -3,7 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import articles from '../../data/articles.json';
 const base=import.meta.env.BASE_URL.replace(/\/$/,'');
-const siteOrigin=Astro.site?.origin || 'https://aph3xx.github.io';
+const siteOrigin=Astro.site?.origin || 'https://sur.kyiv.ua';
 const schema={'@context':'https://schema.org','@type':'Blog','name':'Журнал Лікар Поруч','description':'Практичні матеріали про вибір лікаря та підготовку до консультації','blogPost':articles.map(a=>({'@type':'BlogPosting','headline':a.title,'url':`${siteOrigin}${base}/zhurnal/${a.slug}/`,'datePublished':a.published,'dateModified':a.updated}))};
 ---
 <BaseLayout title="Журнал здоров’я | Лікар Поруч" description="Практичні матеріали українською про вибір лікаря, підготовку до консультації, доказову медицину та невідкладні стани." path="/zhurnal/" schema={schema}>
