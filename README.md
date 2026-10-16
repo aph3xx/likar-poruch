@@ -29,6 +29,24 @@ npm run qa:browser
 
 Site-wide details are stored in `src/data/site.json`, Russian-language settings in `src/data/site-ru.json`, shared bilingual services in `src/data/services.json`, and journal content in `src/data/articles.json`. The CMS schema is defined in `.pages.yml`.
 
+## AI development workflow
+
+OpenSpec is initialized under `openspec/`, and its Hermes skills are stored in `.hermes/skills/`. Use the matching OpenSpec skill for non-trivial product changes:
+
+1. `openspec-propose` creates a change proposal, design, specs, and tasks.
+2. `openspec-apply-change` implements approved tasks.
+3. `openspec-update-change` revises planning artifacts when scope changes.
+4. `openspec-archive-change` archives a verified implementation.
+
+Useful checks:
+
+```bash
+openspec list --json
+openspec validate --all --strict
+```
+
+The local Hermes profile also has project-scoped automation hooks. They inject concise Git, OpenSpec, and Kanban state into AI turns and run the project quality gate before an AI session finishes after code changes. Both hooks no-op outside this repository. Inspect them with `hermes hooks list` and `hermes hooks doctor`.
+
 ## Site structure
 
 - homepage focused on the medical practice and appointment conversion

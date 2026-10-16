@@ -1,0 +1,34 @@
+schema: spec-driven
+
+context: |
+  Лікар Поруч is a Ukrainian-first private medical center website, not a directory, marketplace, or aggregator.
+  The site is an Astro static build deployed to GitHub Pages under /likar-poruch/.
+  Ukrainian is the primary interface language. Russian routes exist for localized search visibility in Ukraine and must use reciprocal hreflang links.
+  Appointment requests currently validate in the browser and open a prefilled SMS. The site must not claim that a request is a confirmed appointment.
+  Never send names, phone numbers, symptoms, diagnoses, or other patient data to PostHog or any analytics provider.
+  Routine content is edited through Pages CMS using .pages.yml and JSON files under src/data/.
+  Emergency information must direct users to 103 or 112 and must not imply that planned care replaces emergency help.
+  Use Conventional Commits. Before deployment, run npm run check, npm test, npm run qa:browser, npm audit --omit=dev, and git diff --check.
+
+rules:
+  proposal:
+    - State patient-data and privacy implications explicitly.
+    - State what is out of scope and identify any external credentials or services required.
+  specs:
+    - Include Ukrainian and Russian localization acceptance criteria when a user-facing route or metadata changes.
+    - Include static GitHub Pages base-path behavior in relevant scenarios.
+  design:
+    - Prefer simple static architecture and official integrations over adding a backend.
+    - Explain any new handling of contact or health information.
+  tasks:
+    - Include automated verification and a live deployment smoke test.
+    - Keep tasks small enough to verify independently.
+
+operations:
+  apply:
+    guidance:
+      - Preserve the private-medical-center positioning and existing visual language.
+      - Do not expose credentials or patient data in source, logs, tests, analytics, or documentation.
+  archive:
+    guidance:
+      - Record final verification evidence and any remaining operational dependency.
