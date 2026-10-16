@@ -52,6 +52,22 @@ const findUndersizedTargets = (page) =>
       }))
       .filter(({ height }) => height < 44),
   );
+const assertNoLocalDraftDeliveryPromises = (copy, context) => {
+  const normalized = copy.toLowerCase();
+  for (const banned of [
+    "sms",
+    "адміністратор",
+    "администратор",
+    "підтверджує запис",
+    "підтвердить запис",
+    "погодить дату",
+    "зв’яжеться з вами",
+    "зв'яжеться з вами",
+  ]) {
+    if (normalized.includes(banned))
+      throw new Error(`${context}: local-draft form promises clinic delivery: ${banned}`);
+  }
+};
 try {
   for (const viewport of viewports) {
     const page = await browser.newPage({ viewport });
@@ -80,6 +96,20 @@ try {
     if ((await page.locator('a[href^="tel:"]').count()) < 2)
       throw new Error(`${viewport.name}: phone links missing`);
     const text = await page.locator("body").innerText();
+    assertNoLocalDraftDeliveryPromises(text, viewport.name);
+    const faqSchema = await page.locator('script[type="application/ld+json"]').evaluateAll((scripts) => {
+      const faq = scripts
+        .map((script) => {
+          try { return JSON.parse(script.textContent || "{}"); } catch { return null; }
+        })
+        .find((entry) => entry?.['@type'] === 'FAQPage');
+      return faq?.mainEntity || [];
+    });
+    const faqText = JSON.stringify(faqSchema).toLowerCase();
+    assertNoLocalDraftDeliveryPromises(faqText, `${viewport.name}: FAQ JSON-LD`);
+    const appointmentFormCopy = await page.locator('.appointment-card').innerText();
+    if (!/локальна\s+чернетка/i.test(appointmentFormCopy) || !/не надсилає/i.test(appointmentFormCopy))
+      throw new Error(`${viewport.name}: appointment form local-draft disclosure missing`);
     for (const banned of [
       "каталог лікарів",
       "демонстраційні профілі",
