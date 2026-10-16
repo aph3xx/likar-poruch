@@ -138,7 +138,7 @@ p { color: var(--body); }
 .hero-practice dt { color: #b9d8ff; font-size: 0.82rem; font-weight: 800; text-transform: uppercase; }
 .hero-practice dd { margin: 0; font-weight: 700; }
 .hero-practice a { color: var(--white); }
-.hero-practice a, .service-card > a, .text-link, .visit-phone, .form-actions a, .breadcrumbs a {
+.hero-practice a, .service-card > a, a.text-link, .visit-phone, .form-actions a, .breadcrumbs a, a[href^='tel:'], a[href^='sms:'] {
   display: inline-flex;
   min-height: 44px;
   align-items: center;

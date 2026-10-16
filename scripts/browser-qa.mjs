@@ -4,6 +4,15 @@ import fs from 'node:fs/promises';
 const base = process.env.QA_BASE_URL || 'http://127.0.0.1:4321/likar-poruch';
 const resolverRules = process.env.QA_HOST_RESOLVER_RULES;
 const widths = [320, 360, 390, 640, 768, 1024, 1280, 1440];
+const standaloneTargetSelector = [
+  '.hero-practice a',
+  '.service-card > a',
+  'a.text-link',
+  '.visit-phone',
+  '.form-actions a',
+  'a[href^="tel:"]',
+  'a[href^="sms:"]',
+].join(', ');
 
 await fs.mkdir('artifacts/qa', { recursive: true });
 const browser = await chromium.launch({
@@ -14,6 +23,13 @@ const browser = await chromium.launch({
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
+
+const findUndersizedTargets = (page) => page.locator(standaloneTargetSelector).evaluateAll((elements) => elements
+  .map((element) => ({
+    text: (element.textContent || '').trim().replace(/\s+/g, ' '),
+    height: element.getBoundingClientRect().height,
+  }))
+  .filter(({ height }) => height > 0 && height < 44));
 
 const parseRgb = (value) => {
   const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
@@ -84,18 +100,7 @@ try {
     assert(focusStyle.width >= 2 && focusStyle.style !== 'none', `${width}px: visible focus indicator missing`);
     assert(focusStyle.targetHeight >= 44, `${width}px: header brand target is ${focusStyle.targetHeight}px high`);
 
-    const undersizedStandaloneTargets = await page.locator([
-      '.hero-practice a',
-      '.service-card > a',
-      '.text-link',
-      '.visit-phone',
-      '.form-actions a',
-    ].join(', ')).evaluateAll((elements) => elements
-      .map((element) => ({
-        text: (element.textContent || '').trim().replace(/\s+/g, ' '),
-        height: element.getBoundingClientRect().height,
-      }))
-      .filter(({ height }) => height < 44));
+    const undersizedStandaloneTargets = await findUndersizedTargets(page);
     assert(
       undersizedStandaloneTargets.length === 0,
       `${width}px: standalone targets below 44px: ${undersizedStandaloneTargets.map(({ text, height }) => `${text} (${height}px)`).join(', ')}`,
@@ -144,12 +149,12 @@ try {
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const retainedRoutes = [
-    '/posluhy/', '/pro-nas/', '/kontakty/', '/zapys/', '/privacy/', '/zhurnal/',
+    '/posluhy/', '/pro-nas/', '/kontakty/', '/zapys/', '/yak-tse-pratsiuie/', '/privacy/', '/zhurnal/',
     '/zhurnal/yak-obraty-simeinoho-likaria/', '/zhurnal/yak-pidhotuvatysia-do-konsultatsii/',
     '/zhurnal/koly-vyklykaty-103/', '/zhurnal/dokazova-medytsyna-prostymy-slovamy/',
     '/ru/', '/ru/uslugi/', '/ru/kontakty/', '/ru/zapis/',
   ];
-  for (const width of [320, 360, 390, 640, 768, 1024, 1280, 1440]) {
+  for (const width of widths) {
     await page.setViewportSize({ width, height: width < 640 ? 800 : 900 });
     for (const route of retainedRoutes) {
       const response = await page.goto(`${base}${route}`, { waitUntil: 'domcontentloaded' });
@@ -159,6 +164,11 @@ try {
         clientWidth: document.documentElement.clientWidth,
       }));
       assert(geometry.scrollWidth <= geometry.clientWidth, `${width}px ${route}: horizontal overflow ${geometry.scrollWidth}/${geometry.clientWidth}`);
+      const undersizedStandaloneTargets = await findUndersizedTargets(page);
+      assert(
+        undersizedStandaloneTargets.length === 0,
+        `${width}px ${route}: standalone targets below 44px: ${undersizedStandaloneTargets.map(({ text, height }) => `${text} (${height}px)`).join(', ')}`,
+      );
     }
   }
 
