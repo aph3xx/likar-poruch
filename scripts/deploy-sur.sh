@@ -69,6 +69,12 @@ fi
 LIVE_HASH=$(sha256sum "$LIVE_BODY" | cut -d' ' -f1)
 [[ "$LIVE_HASH" == "$EXPECTED_HASH" ]] || rollback "live gateway does not serve the new artifact"
 
+if ! QA_BASE_URL="https://sur.kyiv.ua:10443/likar-poruch" \
+  QA_HOST_RESOLVER_RULES="MAP sur.kyiv.ua 127.0.0.1" \
+  npm run qa:browser; then
+  rollback "live gateway browser QA failed"
+fi
+
 rm -rf "$PREVIOUS"
 printf 'Deployed commit %s to %s\n' "$LOCAL_SHA" "https://sur.kyiv.ua/likar-poruch/"
 printf 'Verified index SHA-256: %s\n' "$LIVE_HASH"

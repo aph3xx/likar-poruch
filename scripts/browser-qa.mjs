@@ -248,9 +248,15 @@ try {
   await ruMenu.click();
   assert(await page.locator('#site-nav').isVisible(), 'Russian mobile menu failed to open');
   await page.setViewportSize({ width: 1280, height: 800 });
-  assert((await ruMenu.getAttribute('aria-expanded')) === 'false', 'Russian menu aria-expanded stayed true at desktop breakpoint');
-  assert(!(await page.locator('body').evaluate((element) => element.classList.contains('menu-open'))), 'Russian body stayed locked at desktop breakpoint');
-  assert(!(await page.locator('#site-nav').evaluate((element) => element.classList.contains('is-open'))), 'Russian mobile nav state stayed open at desktop breakpoint');
+  await page.waitForFunction(() => {
+    const menu = document.querySelector('.menu-toggle');
+    const nav = document.querySelector('#site-nav');
+    return menu?.getAttribute('aria-expanded') === 'false'
+      && !document.body.classList.contains('menu-open')
+      && !nav?.classList.contains('is-open');
+  }, null, { timeout: 5_000 }).catch(() => {
+    throw new Error('Russian mobile navigation state did not reset at desktop breakpoint');
+  });
   await page.setViewportSize({ width: 390, height: 800 });
   await ruMenu.click();
   await page.keyboard.press('Escape');
@@ -262,9 +268,15 @@ try {
   const ukMenu = page.locator('.menu-toggle');
   await ukMenu.click();
   await page.setViewportSize({ width: 1280, height: 800 });
-  assert((await ukMenu.getAttribute('aria-expanded')) === 'false', 'Ukrainian menu aria-expanded stayed true at desktop breakpoint');
-  assert(!(await page.locator('body').evaluate((element) => element.classList.contains('menu-open'))), 'Ukrainian body stayed locked at desktop breakpoint');
-  assert(!(await page.locator('#site-nav').evaluate((element) => element.classList.contains('is-open'))), 'Ukrainian mobile nav state stayed open at desktop breakpoint');
+  await page.waitForFunction(() => {
+    const menu = document.querySelector('.menu-toggle');
+    const nav = document.querySelector('#site-nav');
+    return menu?.getAttribute('aria-expanded') === 'false'
+      && !document.body.classList.contains('menu-open')
+      && !nav?.classList.contains('is-open');
+  }, null, { timeout: 5_000 }).catch(() => {
+    throw new Error('Ukrainian mobile navigation state did not reset at desktop breakpoint');
+  });
 
   await page.goto(`${base}/`, { waitUntil: 'networkidle' });
   const schemas = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
