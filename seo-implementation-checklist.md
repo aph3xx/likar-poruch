@@ -2,7 +2,7 @@
 
 Scope: conversion of the approved SEO report on task `t_f1276181` into implementation-ready work items. Repository inspection was read-only on 2026-10-16 in `/home/sgdt1a/projects/likar-poruch`. Status labels: **Applicable**, **Already satisfied**, **Conditional/blocked**, or **Not applicable**.
 
-Important evidence boundary: the parent report did not have live HTTP/browser access (Chrome was unavailable). Current conclusions below are based on source files and the checked-in `dist/` output. Deployment status, redirects, Search Console, Rich Results, and Core Web Vitals still require a real-host check.
+Important evidence boundary: the parent report did not have live HTTP/browser access (Chrome was unavailable). Current implementation conclusions below are based on source files and the generated `dist/` output from the final build; `dist/` is a build artifact and is not checked into Git. Deployment status, redirects, Search Console, Rich Results, and Core Web Vitals still require the real-host or externally authorized checks described below.
 
 ## Checklist
 
@@ -10,7 +10,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Affected: route policy, deployment redirects, `src/layouts/BaseLayout.astro`, README, sitemap output.
    - Expected behavior: only Ukrainian routes and Ukrainian user-facing metadata are exposed for indexing; no Russian navigation, copy, `hreflang="ru"`, `og:locale:ru`, or multilingual route set is introduced.
    - Acceptance: policy is documented; `src/pages/` contains no Russian route tree; generated HTML has `lang="uk"`, `hreflang="uk"` and `x-default` only; no Russian URLs occur in sitemap or internal links.
-   - Applicability: **Applicable; already satisfied in inspected source/build**, but retain as a release gate. The parent report described four Russian routes, while the current checkout has no `src/pages/ru`, `RussianLayout`, or `site-ru` file and the checked `dist/sitemap-0.xml` has no `/ru/` URLs. This discrepancy must be resolved against the intended release commit before implementation.
+   - Applicability: **Applicable; already satisfied in the final source/build**, but retain as a release gate. The parent report described four Russian routes, while the final tree has no `src/pages/ru`, `RussianLayout`, or `site-ru` file and the generated `dist/sitemap-0.xml` has no `/ru/` URLs. The earlier report described a different tree; the final implementation/report is authoritative for current state.
 
 2. **Decide legacy `/ru/*` handling using evidence, not assumption.**
    - Affected: hosting redirect configuration or static route stubs; Search Console and backlink/indexation evidence.
@@ -34,7 +34,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Affected: `astro.config.mjs:9`, generated `dist/sitemap-index.xml` and `dist/sitemap-0.xml`, `scripts/validate-build.mjs:28-30`.
    - Expected behavior: sitemap contains only canonical, indexable, intended Ukrainian URLs; excludes 404, redirects, private/noindex pages, and retired Russian URLs; URL slash/base/origin policy is consistent.
    - Acceptance: parse sitemap after build; every `<loc>` has the expected origin/base and trailing slash; every URL maps to a generated page with one canonical and indexable robots meta; `/404/` and `/ru/` are absent. Keep the existing `/ru/` assertion and strengthen it to validate all sitemap URLs.
-   - Applicability: **Applicable; partly satisfied**. Current sitemap has 12 Ukrainian URLs and no `/ru/`; `privacy/` is included, so owner must decide whether it is a public index target or should receive `noindex` and be removed. The guide requires only canonical URLs, not necessarily only commercial pages.
+   - Applicability: **Applicable; satisfied for the final generated artifact**. The current sitemap has 11 intended Ukrainian URLs, excludes `/ru/`, `/404/`, and `privacy/`, and every listed URL maps to a generated indexable page. The guide requires canonical URLs, not necessarily only commercial pages; privacy is intentionally noindex and excluded.
 
 6. **Verify robots and sitemap discovery on the deployed host.**
    - Affected: `src/pages/robots.txt.ts`, generated `dist/robots.txt`, deployment path.
@@ -46,7 +46,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Affected: `src/layouts/BaseLayout.astro:21-34`, route frontmatter/props, `scripts/validate-build.mjs:16-26`.
    - Expected behavior: each indexable route has unique Ukrainian title/description, exactly one canonical, `lang="uk"`, one H1, and indexable robots directives unless intentionally excluded.
    - Acceptance: validation checks uniqueness (not only presence), exact-one canonical/H1, `lang=uk`, description length/content, and no accidental noindex on target routes. Validate all journal pages generated from `src/data/articles.json`.
-   - Applicability: **Applicable; baseline already present**, but uniqueness and intended indexability need explicit regression checks.
+   - Applicability: **Applicable; satisfied by the final validator and regression checks**. Uniqueness and intended indexability are explicitly enforced for the generated pages, with mutation coverage recorded in the integration report.
 
 8. **Review and improve high-intent page titles and descriptions without keyword stuffing.**
    - Affected: `src/pages/index.astro:27`, `posluhy.astro:8`, `kontakty.astro:10`, `pro-nas.astro:4`, `zapys.astro`, journal route templates and `src/data/articles.json`.
@@ -64,7 +64,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
     - Affected: `BaseLayout.astro:7-11,19,32-34`; `index.astro`, contacts, journal templates, RSS route; `astro.config.mjs:6`.
     - Expected behavior: no root-relative production links accidentally bypass `/likar-poruch`; all absolute URLs use `siteOrigin + base`.
     - Acceptance: automated scan flags absolute/root-relative internal URLs that omit `/likar-poruch`; representative HTML, JSON-LD, RSS, sitemap, and manifest all resolve under the deployed base.
-    - Applicability: **Applicable; mostly satisfied**. `Breadcrumbs.astro` and `BaseLayout` base-prefix links; audit route-specific constructions such as contacts and RSS after any edits.
+    - Applicability: **Applicable; satisfied by the final validator and regression checks**. `Breadcrumbs.astro` and `BaseLayout` use base-aware links, and the validator rejects internal root-relative and same-origin absolute base bypasses; route-specific constructions such as contacts and RSS remain covered by the build checks.
 
 11. **Normalize clinic structured data as one truthful entity.**
     - Affected: JSON-LD in `src/pages/index.astro:20-24` and `src/pages/kontakty.astro:6-8`; potentially shared schema helper/data.
@@ -118,13 +118,13 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
     - Affected: `package.json` scripts, `scripts/validate-build.mjs`, `scripts/browser-qa.mjs`, generated `dist/` and `artifacts/qa/`.
     - Expected behavior: build, Astro type/check, metadata/sitemap validation, and browser QA all pass without stale Russian/aggregator signals or broken routes.
     - Acceptance: run `npm run test`, `npm run check`, and `npm run qa:browser`; retain outputs/artifacts. Current QA explicitly checks Ukrainian `lang`, absence of Russian hreflang, clinic schema, route responses, booking validation, console errors, and overflow.
-    - Applicability: **Applicable; required implementation gate**. No test execution was performed for this checklist task.
+    - Applicability: **Applicable; required implementation gate**. The final integration report records passing `npm run test`, `npm run check`, configured-origin build/validator, browser QA, and audit gates for the remediated tree.
 
 20. **Strengthen automated release assertions for SEO invariants.**
     - Affected: `scripts/validate-build.mjs`; optionally a new script wired into `package.json`.
     - Expected behavior: CI fails on wrong origin, duplicate metadata, non-Ukrainian language/hreflang, sitemap URLs without generated canonical pages, `/ru/` URLs, 404/private pages in sitemap, invalid internal links, or malformed JSON-LD.
     - Acceptance: tests exercise both normal build and failure fixtures/conditions where practical; error messages identify route and invariant; no reliance solely on manual inspection.
-    - Applicability: **Applicable; enhancement**. Existing validator covers many invariants but does not verify uniqueness, every sitemap URL mapping, JSON-LD parseability, or exact origin for all artifacts.
+    - Applicability: **Applicable; implemented and verified**. The final validator verifies metadata uniqueness, sitemap-to-generated-page/noindex mapping, JSON-LD parseability, configured canonical origin, language/hreflang, base-aware links, robots, and retired Russian URL absence; mutation tests cover the relevant failure boundaries.
 
 21. **Deploy and verify real HTTP behavior.**
     - Affected: deployed host, hosting configuration, robots/sitemap, redirects, all target routes.
@@ -158,7 +158,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
 
 ## Unresolved decisions/evidence required
 
-- Confirm whether the parent report was generated from a different commit/worktree: it claims `src/pages/ru/*`, `RussianLayout.astro`, and `src/data/site-ru.json`, but those files and `/ru/` sitemap URLs are absent in the inspected checkout.
+- The parent report was generated from a different commit/worktree: it claims `src/pages/ru/*`, `RussianLayout.astro`, and `src/data/site-ru.json`, but the final tree has none of those files and its generated sitemap has no `/ru/` URLs.
 - Production origin is resolved as the private SUR site at `https://sur.kyiv.ua/likar-poruch/`; no GitHub Pages publication path is used. This determines `PUBLIC_SITE_URL`, robots, canonical, sitemap, and redirect implementation.
 - Obtain legacy `/ru/*` traffic/backlink/indexation evidence before choosing 301 versus 404/410.
 - Verify the clinic address, phone, specialties, `MedicalClinic` identity, editorial reviewer, and any social profiles before publishing corresponding structured-data claims.
