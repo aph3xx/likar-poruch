@@ -6,12 +6,6 @@ import serviceData from '../../data/services.json';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const phone = site.phone;
 const phoneDisplay = site.phoneDisplay;
-const services = serviceData.map((service, index) => ({
-  number: String(index + 1).padStart(2, '0'),
-  title: service.titleRu,
-  text: service.summaryRu,
-  points: service.itemsRu.slice(0, 3)
-}));
 ---
 <RussianLayout
   title="Частный медицинский центр в Киеве | Лікар Поруч"
@@ -19,62 +13,55 @@ const services = serviceData.map((service, index) => ({
   path="/ru/"
   ukPath="/"
 >
-  <section class="hero clinic-hero">
-    <div class="hero-grid">
+  <section class="hero" aria-labelledby="ru-hero-title">
+    <div class="container hero-grid">
       <div class="hero-copy">
         <p class="eyebrow">Частный медицинский центр в Киеве</p>
-        <h1>Здоровье ближе. <em>Врач рядом.</em></h1>
-        <p class="lead">Медицинская помощь взрослым и детям: семейный врач, эндокринолог и быстрая диагностика в одном центре на ул. Хоральской, 1А.</p>
-        <div class="clinic-actions">
-          <a class="button" href={`${base}/ru/zapis/`}>Записаться на приём</a>
-          <a class="button secondary" href={`${base}/ru/uslugi/`}>Посмотреть услуги</a>
-        </div>
-        <div class="micro-trust"><span>Прямая запись в центр</span><span>Диагностика на месте</span></div>
+        <h1 id="ru-hero-title">Здоровье ближе.<br /><em>Врач рядом.</em></h1>
+        <p class="lead">Семейная медицина для взрослых и детей, эндокринология и быстрая диагностика в одном месте.</p>
+        <ul class="fact-chips" aria-label="Направления помощи"><li>Взрослым и детям</li><li>Диагностика на месте</li><li>Предварительная запись</li></ul>
+        <div class="hero-actions"><a class="button" href={`${base}/ru/zapis/`}>Записаться на приём</a><a class="button button-quiet" href={`tel:${phone}`}>Позвонить</a></div>
       </div>
-      <div class="hero-photo clinic-photo">
-        <img src={`${base}/images/clinic-doctor.webp`} width="475" height="720" alt="Интерьер частного медицинского центра «Лікар Поруч» в Киеве" fetchpriority="high" />
-      </div>
+      <aside class="hero-practice" aria-label="Контактная информация центра">
+        <div class="practice-brand"><img src={`${base}/brand/mark-inverse.svg`} alt="" width="54" height="60" /><span>Лікар Поруч</span></div>
+        <p>Личная медицинская помощь рядом с домом</p>
+        <dl>
+          <div><dt>Адрес</dt><dd>{site.address}, Киев</dd></div>
+          <div><dt>Запись</dt><dd><a href={`tel:${phone}`}>{phoneDisplay}</a></dd></div>
+          <div><dt>Формат</dt><dd>Частная медицинская практика</dd></div>
+        </dl>
+      </aside>
     </div>
   </section>
 
-  <section class="section" id="uslugi">
+  <section class="section services-section" id="uslugi">
     <div class="container">
-      <div class="section-head">
-        <div><p class="eyebrow">Медицинская помощь рядом</p><h2>Основные направления</h2></div>
-        <p class="lead">Вы обращаетесь напрямую в частный медицинский центр, а не в агрегатор или каталог врачей.</p>
-      </div>
-      <div class="clinic-services">
-        {services.map((service) => (
-          <article class="clinic-service">
-            <span>{service.number}</span><h3>{service.title}</h3><p>{service.text}</p>
-            <ul>{service.points.map((point) => <li>{point}</li>)}</ul>
+      <div class="section-head"><div><p class="eyebrow">Когда нужна помощь</p><h2>Три направления, один понятный маршрут</h2></div><p class="lead">Во время записи администратор поможет выбрать подходящий формат приёма.</p></div>
+      <div class="service-grid">
+        {serviceData.map((service, index) => (
+          <article class="service-card">
+            <div class="service-number">0{index + 1}</div>
+            <h3>{service.titleRu}</h3>
+            <p>{service.summaryRu}</p>
+            <ul>{service.itemsRu.slice(0, 4).map((item) => <li>{item}</li>)}</ul>
+            <a href={`${base}/ru/uslugi/`}>Подробнее <span aria-hidden="true">→</span></a>
           </article>
         ))}
       </div>
-      <div class="section-cta"><a class="button" href={`${base}/ru/uslugi/`}>Все услуги</a></div>
     </div>
   </section>
 
-  <section class="section section-ink">
-    <div class="container trust-grid">
-      <div>
-        <p class="eyebrow">Забота без лишнего стресса</p>
-        <h2>Один центр для повседневных медицинских вопросов</h2>
-        <p class="lead">Согласуйте консультацию и время визита напрямую с медицинским центром.</p>
-        <a class="button yellow" href={`tel:${phone}`}>Позвонить</a>
-      </div>
-      <div class="method-list">
-        <div class="method-item"><div><h3>Для взрослых и детей</h3><p>Семейная медицина с учетом возраста, истории здоровья и потребностей семьи.</p></div></div>
-        <div class="method-item"><div><h3>Диагностика на месте</h3><p>Базовые измерения, экспресс-тесты и ЭКГ без поездки в другое учреждение.</p></div></div>
-        <div class="method-item"><div><h3>Прямая связь</h3><p>Позвоните, чтобы уточнить услугу и договориться о визите.</p></div></div>
-      </div>
+  <section class="section diagnostics-section">
+    <div class="container diagnostics-layout">
+      <div><p class="eyebrow eyebrow-light">Забота без лишнего стресса</p><h2>Один центр для повседневных медицинских вопросов</h2><p class="lead">Согласуйте консультацию и время визита напрямую с медицинским центром.</p><a class="button button-light" href={`tel:${phone}`}>Позвонить</a></div>
+      <ul class="diagnostics-list"><li><span>01</span>Семейная медицина для взрослых и детей</li><li><span>02</span>Консультации эндокринолога</li><li><span>03</span>Базовая диагностика на месте</li></ul>
     </div>
   </section>
 
-  <section class="section contact-band">
+  <section class="section contact-section">
     <div class="container contact-band-grid">
-      <div><p class="eyebrow">Мы рядом</p><h2>ул. Хоральская, 1А, Киев</h2><p class="lead">Уточните подходящую услугу и договоритесь о времени приема.</p></div>
-      <div class="contact-number"><span>Запись по телефону</span><a href={`tel:${phone}`}>{phoneDisplay}</a><a class="text-link" href={`${base}/ru/kontakty/`}>Контакты и маршрут →</a></div>
+      <div><p class="eyebrow">Мы рядом</p><h2>{site.address}, Киев</h2><p class="lead">Уточните подходящую услугу и договоритесь о времени приёма.</p></div>
+      <div class="visit-card"><div><span class="meta-label">Запись по телефону</span><a class="visit-phone" href={`tel:${phone}`}>{phoneDisplay}</a></div><div><a class="button" href={`${base}/ru/zapis/`}>Оставить запрос</a></div></div>
     </div>
   </section>
 </RussianLayout>

@@ -25,7 +25,7 @@ npm run qa:browser
 2. Sign in with GitHub and select `aph3xx/likar-poruch`.
 3. Edit **Налаштування медичного центру**, **Налаштування російської версії**, **Медичні послуги**, or **Статті**.
 4. Save. Pages CMS commits the JSON content change to GitHub.
-5. GitHub Actions validates and deploys the new version.
+5. GitHub stores the authoritative commit. Production is deployed separately to the private SUR host.
 
 Site-wide details are stored in `src/data/site.json`, Russian-language settings in `src/data/site-ru.json`, shared bilingual services in `src/data/services.json`, and journal content in `src/data/articles.json`. The CMS schema is defined in `.pages.yml`.
 
@@ -46,6 +46,18 @@ openspec validate --all --strict
 ```
 
 The local Hermes profile also has project-scoped automation hooks. They inject concise Git, OpenSpec, and Kanban state into AI turns and run the project quality gate before an AI session finishes after code changes. Both hooks no-op outside this repository. Inspect them with `hermes hooks list` and `hermes hooks doctor`.
+
+## Production deployment
+
+Production is the Tailscale-only URL `https://sur.kyiv.ua/likar-poruch/`, served from `/home/sgdt1a/.local/share/likar-poruch-site`. GitHub Pages is not the production target.
+
+Release only a clean `main` commit that already exists at `origin/main`:
+
+```bash
+npm run deploy:sur
+```
+
+The deployment command builds with `PUBLIC_SITE_URL=https://sur.kyiv.ua`, runs the release gates, atomically replaces the allowlisted static artifact, records the commit in `release.json`, and verifies the artifact through the real SUR gateway. Read `AGENTS.md` before making or releasing changes.
 
 ## Site structure
 
