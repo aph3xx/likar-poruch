@@ -159,7 +159,6 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
 ## Unresolved decisions/evidence required
 
 - The parent report was generated from a different commit/worktree: it claims `src/pages/ru/*`, `RussianLayout.astro`, and `src/data/site-ru.json`, but the final tree has none of those files and its generated sitemap has no `/ru/` URLs.
-- Confirm whether the parent report was generated from a different commit/worktree: it claims `src/pages/ru/*`, `RussianLayout.astro`, and `src/data/site-ru.json`, but those files and `/ru/` sitemap URLs are absent in the inspected checkout.
 - Production origin is resolved as the private SUR site at `https://sur.kyiv.ua/likar-poruch/`; no GitHub Pages publication path is used. This determines `PUBLIC_SITE_URL`, robots, canonical, sitemap, and redirect implementation.
 - Obtain legacy `/ru/*` traffic/backlink/indexation evidence before choosing 301 versus 404/410.
 - Verify the clinic address, phone, specialties, `MedicalClinic` identity, editorial reviewer, and any social profiles before publishing corresponding structured-data claims.
