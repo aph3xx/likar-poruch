@@ -52,7 +52,8 @@ All commands ran in `/home/sgdt1a/projects/likar-poruch`.
 - `QA_BASE_URL=http://127.0.0.1:4326/likar-poruch PATH=/home/sgdt1a/.local/bin:$PATH npm run qa:browser` — PASS; no-key browser QA passed at 360, 768, 1280, and 1440px with no console errors or horizontal overflow, Ukrainian metadata, navigation, booking validation, phone CTAs, and MedicalClinic schema.
 - `PUBLIC_POSTHOG_KEY=phc_test PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com QA_BASE_URL=http://127.0.0.1:4327/likar-poruch QA_EXPECT_ANALYTICS=1 PATH=/home/sgdt1a/.local/bin:$PATH npm run qa:browser` — PASS; configured-key QA observed the split SDK and PostHog traffic only after affirmative consent, rejected future-dated/forged consent, and found no sentinel form values in request bodies or after withdrawal.
 - `PATH=/home/sgdt1a/.local/bin:$PATH npm audit --omit=dev` — PASS; 0 vulnerabilities.
-- `curl` route probes against the local production preview — PASS: `/`, `/posluhy/`, `/kontakty/`, `/zapys/`, `/zhurnal/`, one article, `/robots.txt`, and `/sitemap-index.xml` all returned 200. `/ru/` and `/ru/uslugi/` returned 404; `/privacy/` returned 200.
+- `npm run deploy:sur` — PASS on clean `origin/main`; deployed commit `854a9a4d83a2a15436c903fb62674b446e1bbb18` to `https://sur.kyiv.ua/likar-poruch/`. The deployment script atomically promoted the artifact, matched the live index hash, and ran live-gateway browser QA at 360, 768, 1280, and 1440px.
+- Live gateway probes from the deployment host — PASS: target routes, robots, sitemap, privacy, and retired Russian routes matched the Ukrainian-only policy; all referenced assets returned successful responses. Direct non-Tailscale curl from this shell timed out, so the deployment script's `--resolve` gateway probes are the authoritative live evidence in this environment.
 - `git diff --check` — PASS.
 
 The first configured-origin validation attempt used `node` without the required PATH export and failed with `node: command not found`; it was immediately rerun with the documented absolute Node path and passed. No source change resulted.
@@ -81,7 +82,7 @@ The first configured-origin validation attempt used `node` without the required 
 | 18 | PostHog is dynamically imported only after valid affirmative consent and a configured key; DNT/key gating, cookieless mode, withdrawal silence, and sentinel non-leakage passed configured-key browser QA. | PASS for implementation/runtime probe; provider-owned external reporting remains outside scope |
 | 19 | `npm run check`, `npm test`, configured-origin build/validator, browser QA, route probes, and diff check passed. | PASS |
 | 20 | Automated validator checks metadata uniqueness, canonical/origin, language, JSON-LD, base links, sitemap/noindex correspondence, robots, and Russian URL absence; deterministic mutations prove root-relative broken links and privacy indexability fail. | PASS |
-| 21 | Local preview route/status probes passed; no production deployment or WAF/header evidence was available. | Deployment operations required |
+| 21 | `npm run deploy:sur` verified the exact released commit through the SUR gateway, including route/status behavior, asset loading, and live browser interactions. | PASS for authorized SUR gateway evidence; public non-Tailscale curl unavailable |
 | 22 | No Search Console action was performed because no verified property/credentials or confirmed production origin was supplied. | Owner access required |
 | 23 | Local JSON-LD parsing passed; Google Rich Results/schema.org external validation requires deployed URLs. | External validation required |
 | 24 | No post-launch SEO outcome claims were made; Search Console baseline/follow-up is not present. | Post-launch measurement required |
@@ -89,4 +90,4 @@ The first configured-origin validation attempt used `node` without the required 
 
 ## Release conclusion
 
-The combined source tree is code-ready for the documented local/static gates: type/Astro checks, full test/build validation, configured SUR-origin artifact validation, no-key and configured-key responsive browser QA, representative local HTTP probes, production dependency audit, and diff hygiene all pass. Shipping readiness remains conditional on recorded live SUR deployment evidence and external evidence: any evidence-based legacy URL disposition, clinic/editorial factual confirmations, Search Console ownership/monitoring, external schema validation, PageSpeed measurements, and post-launch outcomes.
+The combined source tree is code-ready and the exact clean `origin/main` commit was deployed and verified through the authorized SUR gateway. Remaining unimplemented items are external operational evidence rather than repository failures: historical legacy URL evidence, clinic/editorial factual confirmations, Search Console ownership/monitoring, external schema validation, PageSpeed measurements, and post-launch outcomes.
