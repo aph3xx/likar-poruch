@@ -62,7 +62,7 @@ The deployment command builds with `PUBLIC_SITE_URL=https://sur.kyiv.ua`, runs t
 ## Site structure
 
 - homepage focused on the medical practice and appointment conversion
-- accessible Ukrainian appointment form with a privacy-preserving SMS handoff
+- accessible Ukrainian appointment form with a privacy-preserving local-draft flow and phone handoff
 - services for family medicine, endocrinology, and on-site rapid diagnostics
 - Ukrainian landing, services, contacts, and booking routes for search visibility in Ukraine
 - about, contacts, privacy, and educational articles

@@ -65,11 +65,19 @@ try{
  if(!/чернетку збережено/i.test(await page.locator('[data-submit-status]').innerText()))throw new Error('booking success status missing');
  if(requests.some(url=>!url.includes('_astro')&&!url.includes('127.0.0.1')))throw new Error('booking submit made a network request');
  if(navigations.length)throw new Error('booking submit navigated');
- const denied=await page.evaluate(()=>{localStorage.removeItem('likar:appointment_request');Storage.prototype.setItem=function(){throw new DOMException('blocked','SecurityError')};return true});
- if(!denied)throw new Error('storage denial setup failed');
- await booking.locator('button[type="submit"]').click();
- if(!/не вдалося зберегти/i.test(await page.locator('[data-submit-status]').innerText()))throw new Error('storage-denied error status missing');
- if(await page.evaluate(()=>Boolean(localStorage.getItem('likar:appointment_request'))))throw new Error('storage-denied path wrote a draft');
+ await page.evaluate(()=>{window.__bookingSubmittedEvents=0;window.addEventListener('likar:booking_submitted',()=>window.__bookingSubmittedEvents+=1)});
+ for(const errorName of ['SecurityError','QuotaExceededError']){
+  const denied=await page.evaluate((name)=>{localStorage.removeItem('likar:appointment_request');Storage.prototype.setItem=function(){throw new DOMException('blocked',name)};return true},errorName);
+  if(!denied)throw new Error(`${errorName}: storage denial setup failed`);
+  await booking.locator('button[type="submit"]').click();
+  const status=await page.locator('[data-submit-status]').innerText();
+  if(!/не вдалося зберегти/i.test(status))throw new Error(`${errorName}: storage-denied error status missing`);
+  if(/чернетку збережено/i.test(status)||await page.locator('[data-submit-label]').innerText()==='Зберегти ще раз')throw new Error(`${errorName}: storage-denied path showed success state`);
+  if(await page.evaluate(()=>Boolean(localStorage.getItem('likar:appointment_request'))))throw new Error(`${errorName}: storage-denied path wrote a draft`);
+  if(await page.evaluate(()=>window.__bookingSubmittedEvents!==0))throw new Error(`${errorName}: storage-denied path emitted booking_submitted`);
+ }
+ if(requests.some(url=>!url.includes('_astro')&&!url.includes('127.0.0.1')))throw new Error('storage-denied path made a network request');
+ if(navigations.length)throw new Error('storage-denied path navigated');
  await page.goto(`${base}/`,{waitUntil:'networkidle'});
  if(await page.locator('link[rel="alternate"][hreflang="ru"]').count())throw new Error('retired Russian hreflang present');
  const schemas=await page.locator('script[type="application/ld+json"]').evaluateAll(nodes=>nodes.flatMap(n=>{const x=JSON.parse(n.textContent||'{}');return Array.isArray(x)?x:[x]}));
