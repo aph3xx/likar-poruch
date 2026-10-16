@@ -1,0 +1,156 @@
+---
+import '../styles/global.css';
+import siteSettings from '../data/site-ru.json';
+import PostHogAnalytics from '../components/PostHogAnalytics.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  path?: string;
+  ukPath?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  path = '/ru/',
+  ukPath = '/',
+  image = '/images/clinic-doctor.webp',
+  type = 'website',
+  noindex = false
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const siteOrigin = 'https://aph3xx.github.io';
+const normalizePath = (value: string) => value === '/' ? '/' : `/${value.replace(/^\/+|\/+$/g, '')}/`;
+const canonical = `${siteOrigin}${base}${normalizePath(path)}`;
+const russianUrl = canonical;
+const ukrainianUrl = `${siteOrigin}${base}${normalizePath(ukPath)}`;
+const imageUrl = image.startsWith('http') ? image : `${siteOrigin}${base}${image}`;
+const href = (value: string) => `${base}${normalizePath(value)}`;
+const phone = siteSettings.phone;
+const phoneDisplay = siteSettings.phoneDisplay;
+const address = `${siteSettings.address}, Киев`;
+const nav = [
+  { href: '/ru/', label: 'Главная' },
+  { href: '/ru/uslugi/', label: 'Услуги' },
+  { href: '/ru/kontakty/', label: 'Контакты' },
+  { href: '/ru/zapis/', label: 'Запись' }
+];
+const clinicSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'MedicalClinic',
+  '@id': `${siteOrigin}${base}/#medical-center`,
+  name: 'Лікар Поруч',
+  description: 'Частный медицинский центр в Киеве: семейный врач, эндокринолог и быстрая диагностика.',
+  url: `${siteOrigin}${base}/ru/`,
+  image: imageUrl,
+  telephone: phone,
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'ул. Хоральская, 1А',
+    addressLocality: 'Киев',
+    addressCountry: 'UA'
+  },
+  medicalSpecialty: ['PrimaryCare', 'Endocrinologic'],
+  availableService: [
+    { '@type': 'MedicalProcedure', name: 'Консультация семейного врача' },
+    { '@type': 'MedicalProcedure', name: 'Консультация эндокринолога' },
+    { '@type': 'MedicalProcedure', name: 'Быстрая диагностика' }
+  ]
+};
+---
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'} />
+    <meta name="theme-color" content="#0b2d69" />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="ru" href={russianUrl} />
+    <link rel="alternate" hreflang="uk" href={ukrainianUrl} />
+    <link rel="alternate" hreflang="x-default" href={ukrainianUrl} />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:locale:alternate" content="uk_UA" />
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content="Лікар Поруч" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:image:alt" content="Частный медицинский центр «Лікар Поруч» в Киеве" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={imageUrl} />
+    <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+    <link rel="manifest" href={`${base}/manifest.webmanifest`} />
+    <script type="application/ld+json" set:html={JSON.stringify(clinicSchema)} />
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Перейти к содержанию</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href={href('/ru/')} aria-label="Лікар Поруч, главная страница">
+          <img class="brand-logo" src={`${base}/brand/mark.svg`} alt="" width="34" height="38" />
+          <span>Лікар Поруч</span>
+        </a>
+        <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav">
+          <span></span><span></span><span></span><span class="sr-only">Открыть меню</span>
+        </button>
+        <nav id="site-nav" class="site-nav" aria-label="Основная навигация">
+          {nav.map((item) => <a href={href(item.href)}>{item.label}</a>)}
+          <a href={`${base}${normalizePath(ukPath)}`} lang="uk" hreflang="uk">Українська</a>
+        </nav>
+        <a class="header-cta" href={href('/ru/zapis/')}>Записаться</a>
+      </div>
+    </header>
+    <main id="content"><slot /></main>
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div>
+          <a class="brand brand-light" href={href('/ru/')}>
+            <img class="brand-logo" src={`${base}/brand/mark-inverse.svg`} alt="" width="34" height="38" />
+            <span>Лікар Поруч</span>
+          </a>
+          <p class="footer-lead">Частный медицинский центр для взрослых и детей в Киеве.</p>
+          <p class="demo-note">Прямая запись в медицинский центр — не агрегатор и не каталог врачей.</p>
+        </div>
+        <div>
+          <h2>Медицинский центр</h2>
+          <a href={href('/ru/uslugi/')}>Услуги</a>
+          <a href={href('/ru/kontakty/')}>Контакты</a>
+          <a href={href('/ru/zapis/')}>Запись</a>
+        </div>
+        <div>
+          <h2>Связь</h2>
+          <a href={`tel:${phone}`}>{phoneDisplay}</a>
+          <p>{address}</p>
+          <a href={`${base}${normalizePath(ukPath)}`} lang="uk" hreflang="uk">Українська версія цієї сторінки</a>
+        </div>
+        <div>
+          <h2>Важно</h2>
+          <p>При угрозе жизни звоните 103 или 112.</p>
+          <p>Информация на сайте не заменяет консультацию врача.</p>
+        </div>
+      </div>
+      <div class="footer-bottom"><span>© 2026 Лікар Поруч</span><span>Частный медицинский центр в Киеве</span></div>
+    </footer>
+    <PostHogAnalytics />
+    <script is:inline>
+      const toggle = document.querySelector('.menu-toggle');
+      const nav = document.querySelector('#site-nav');
+      toggle?.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!open));
+        nav?.classList.toggle('is-open', !open);
+      });
+    </script>
+  </body>
+</html>

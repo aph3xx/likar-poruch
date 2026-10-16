@@ -1,0 +1,51 @@
+---
+import RussianLayout from '../../layouts/RussianLayout.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const phone = '+380931080095';
+const phoneDisplay = '+38 (093) 108-00-95';
+---
+<RussianLayout
+  title="Запись на прием в медицинский центр | Лікар Поруч"
+  description="Запись в частный медицинский центр «Лікар Поруч» в Киеве: семейный врач, эндокринолог и быстрая диагностика на ул. Хоральской, 1А."
+  path="/ru/zapis/"
+  ukPath="/zapys/"
+>
+  <section class="page-hero">
+    <div class="container">
+      <nav class="breadcrumbs" aria-label="Навигационная цепочка"><a href={`${base}/ru/`}>Главная</a><span aria-hidden="true">/</span><span aria-current="page">Запись</span></nav>
+      <p class="eyebrow">Прямая запись в медицинский центр</p>
+      <h1>Запишитесь на консультацию или диагностику</h1>
+      <p class="lead">Вы обращаетесь напрямую в частный медицинский центр «Лікар Поруч» в Киеве. Мы не являемся агрегатором или каталогом врачей.</p>
+      <div class="clinic-actions">
+        <a class="button" href={`tel:${phone}`}>Позвонить: {phoneDisplay}</a>
+        <a class="button secondary" href={`${base}/zapys/`} lang="uk" hreflang="uk">Перейти к форме на украинском</a>
+      </div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="container service-detail-list">
+      <article class="service-detail">
+        <span>01</span>
+        <div><h2>Выберите направление</h2></div>
+        <p>Можно записаться к семейному врачу, эндокринологу или уточнить доступную быструю диагностику.</p>
+      </article>
+      <article class="service-detail">
+        <span>02</span>
+        <div><h2>Свяжитесь с центром</h2><p class="lead"><a href={`tel:${phone}`}>{phoneDisplay}</a></p></div>
+        <p>Кратко опишите запрос и скажите, консультация нужна взрослому или ребенку.</p>
+      </article>
+      <article class="service-detail">
+        <span>03</span>
+        <div><h2>Уточните детали визита</h2><p class="lead">ул. Хоральская, 1А, Киев</p></div>
+        <p>Уточните доступное время и необходимую подготовку. Если есть предыдущие заключения и результаты обследований, спросите, нужно ли взять их с собой.</p>
+      </article>
+    </div>
+  </section>
+  <section class="section section-ice">
+    <div class="container contact-band-grid">
+      <div><p class="eyebrow">Русской формы пока нет</p><h2>Используйте украинскую форму записи</h2><p class="lead">Или позвоните в медицинский центр — это самый прямой способ согласовать визит.</p></div>
+      <div class="contact-number"><a class="button" href={`${base}/zapys/`} lang="uk" hreflang="uk">Открыть форму записи</a><a href={`tel:${phone}`}>{phoneDisplay}</a></div>
+    </div>
+  </section>
+</RussianLayout>

@@ -2,14 +2,11 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import site from '../data/site.json';
-const services=[
- {title:'Сімейний лікар',intro:'Первинна медична допомога для дорослих і дітей.',items:['Консультація та клінічний огляд','Діагностика і план лікування','Супровід хронічних станів','Електронні рецепти','Лікарняні та медичні довідки','Профілактичні огляди']},
- {title:'Ендокринолог',intro:'Консультації при гормональних і метаболічних порушеннях.',items:['Захворювання щитоподібної залози','Цукровий діабет','Метаболічні порушення','Гормональні порушення','Контроль хронічних ендокринних станів']},
- {title:'Швидка діагностика',intro:'Базові обстеження безпосередньо у медичному центрі.',items:['ЕКГ із розшифруванням','Вимірювання артеріального тиску та пульсу','Швидкі діагностичні тести','Визначення глюкози та холестерину','Отоскопія','Перевірка гостроти зору','Вимірювання зросту, ваги та індексу маси тіла']}
-];
+import serviceData from '../data/services.json';
+const services=serviceData.map((service)=>({title:service.titleUk,intro:service.summaryUk,items:service.itemsUk}));
 ---
 <BaseLayout title="Послуги | Лікар Поруч" description="Послуги медичного центру: сімейний лікар для дорослих і дітей, ендокринолог та швидка діагностика на місці." path="posluhy">
 <section class="page-hero"><div class="container"><Breadcrumbs items={[{label:'Головна',href:'/'},{label:'Послуги'}]} /><p class="eyebrow">Медична допомога поруч</p><h1>Послуги для щоденної турботи про здоров’я</h1><p class="lead">Уточніть доступність конкретної послуги та час прийому телефоном.</p></div></section>
 <section class="section"><div class="container service-detail-list">{services.map((service,i)=><article class="service-detail"><span>0{i+1}</span><div><h2>{service.title}</h2><p class="lead">{service.intro}</p></div><ul>{service.items.map(item=><li>{item}</li>)}</ul></article>)}</div></section>
-<section class="section section-ink"><div class="container contact-band-grid"><div><p class="eyebrow">Запис на прийом</p><h2>Підберемо потрібну консультацію</h2><p class="lead">Зателефонуйте та коротко опишіть свій запит.</p></div><div class="contact-number"><span>Телефон</span><a href={`tel:${site.phone}`}>{site.phoneDisplay}</a><p>{site.address}</p></div></div></section>
+<section class="section section-ink"><div class="container contact-band-grid"><div><p class="eyebrow">Запис на прийом</p><h2>Підберемо потрібну консультацію</h2><p class="lead">Заповніть коротку форму або зателефонуйте, щоб узгодити деталі.</p><div class="clinic-actions"><a class="button yellow" href={`${import.meta.env.BASE_URL}zapys/`}>Записатися онлайн</a><a class="button secondary" href={`tel:${site.phone}`}>Зателефонувати</a></div></div><div class="contact-number"><span>Телефон</span><a href={`tel:${site.phone}`}>{site.phoneDisplay}</a><p>{site.address}</p></div></div></section>
 </BaseLayout>

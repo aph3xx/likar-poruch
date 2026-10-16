@@ -2,13 +2,15 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import site from '../data/site.json';
 import articles from '../data/articles.json';
+import serviceData from '../data/services.json';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const phoneHref = `tel:${site.phone}`;
-const services = [
-  { number: '01', title: 'Сімейний лікар', text: 'Консультації для дорослих і дітей, огляд, діагностика, лікування та тривалий супровід.', points: ['Хронічні стани', 'Е-рецепти та довідки', 'Профілактичні огляди'] },
-  { number: '02', title: 'Ендокринолог', text: 'Допомога при захворюваннях щитоподібної залози, діабеті, метаболічних і гормональних порушеннях.', points: ['Щитоподібна залоза', 'Цукровий діабет', 'Контроль лікування'] },
-  { number: '03', title: 'Швидка діагностика', text: 'Основні дослідження безпосередньо у медичному центрі, щоб швидше визначити наступні кроки.', points: ['ЕКГ із розшифруванням', 'Глюкоза та холестерин', 'Швидкі тести й отоскопія'] }
-];
+const services = serviceData.map((service, index) => ({
+  number: String(index + 1).padStart(2, '0'),
+  title: service.titleUk,
+  text: service.summaryUk,
+  points: service.itemsUk.slice(0, 3)
+}));
 const faq = [
   ['Кого приймає медичний центр?', 'Ми надаємо медичну допомогу дорослим і дітям. Обсяг конкретної консультації узгоджується під час запису.'],
   ['Як записатися на прийом?', `Зателефонуйте за номером ${site.phoneDisplay}. Адміністратор допоможе обрати консультацію та погодити час.`],
@@ -28,7 +30,7 @@ const schema = [
         <p class="eyebrow">Медичний центр для всієї родини</p>
         <h1>Здоров’я ближче. <em>Лікар поруч.</em></h1>
         <p class="lead">Особиста медична допомога для дорослих і дітей: від першої консультації до діагностики та подальшого супроводу.</p>
-        <div class="clinic-actions"><a class="button" href={phoneHref}>Записатися: {site.phoneDisplay}</a><a class="button secondary" href={`${base}/posluhy/`}>Переглянути послуги</a></div>
+        <div class="clinic-actions"><a class="button" href={`${base}/zapys/`}>Записатися на прийом</a><a class="button secondary" href={`${base}/posluhy/`}>Переглянути послуги</a></div>
         <div class="micro-trust"><span>Без черг і очікування</span><span>Діагностика на місці</span></div>
       </div>
       <div class="hero-photo clinic-photo"><img src={`${base}/images/clinic-doctor.webp`} width="475" height="720" alt="Лікарка медичного центру «Лікар Поруч»" fetchpriority="high" /></div>

@@ -17,29 +17,33 @@ npm test
 npm run qa:browser
 ```
 
-`npm test` builds the static site and verifies metadata, one H1 per page, Ukrainian language metadata, canonical URLs, and internal links. Browser QA checks 360, 768, 1280, and 1440 pixel layouts, mobile navigation, phone CTAs, MedicalClinic structured data, browser errors, stale directory language, and horizontal overflow.
+`npm test` builds the static site and verifies metadata, one H1 per page, Ukrainian and Russian language metadata, canonical URLs, and internal links. Browser QA checks 360, 768, 1280, and 1440 pixel layouts, mobile navigation, reciprocal hreflang, appointment-form validation, phone CTAs, MedicalClinic structured data, browser errors, and horizontal overflow.
 
 ## Content management
 
 1. Open [Pages CMS](https://pagescms.org/).
 2. Sign in with GitHub and select `aph3xx/likar-poruch`.
-3. Edit **Налаштування медичного центру** or **Статті**.
+3. Edit **Налаштування медичного центру**, **Налаштування російської версії**, **Медичні послуги**, or **Статті**.
 4. Save. Pages CMS commits the JSON content change to GitHub.
 5. GitHub Actions validates and deploys the new version.
 
-Site-wide details are stored in `src/data/site.json`; journal content is in `src/data/articles.json`. The CMS schema is defined in `.pages.yml`.
+Site-wide details are stored in `src/data/site.json`, Russian-language settings in `src/data/site-ru.json`, shared bilingual services in `src/data/services.json`, and journal content in `src/data/articles.json`. The CMS schema is defined in `.pages.yml`.
 
 ## Site structure
 
-- homepage focused on the medical practice and phone booking
+- homepage focused on the medical practice and appointment conversion
+- accessible Ukrainian appointment form with a privacy-preserving SMS handoff
 - services for family medicine, endocrinology, and on-site rapid diagnostics
+- Russian landing, services, contacts, and booking routes for Ukrainian search visibility
 - about, contacts, privacy, and educational articles
 - clinic phone number and address available throughout the site
+- privacy-safe PostHog funnel tracking, activated only when `PUBLIC_POSTHOG_KEY` is configured
 
 ## SEO and accessibility
 
 - per-route titles, descriptions, canonical and social metadata
-- Ukrainian language and hreflang declarations
+- reciprocal Ukrainian and Russian hreflang declarations for localized routes
+- Ukraine and Kyiv-focused service language without keyword stuffing
 - MedicalClinic, WebSite, FAQ, MedicalWebPage, Article, and breadcrumb JSON-LD
 - XML sitemap, RSS, robots.txt, manifest, and security.txt
 - semantic headings, keyboard navigation, visible focus states, and responsive static HTML

@@ -1,0 +1,182 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import AppointmentForm from '../components/AppointmentForm.astro';
+---
+
+<BaseLayout
+  title="Запит на запис | Лікар Поруч"
+  description="Підготуйте SMS-запит на прийом у медичному центрі Лікар Поруч: сімейний лікар, ендокринолог або швидка діагностика."
+  path="zapys"
+>
+  <section class="page-hero booking-hero">
+    <div class="container">
+      <Breadcrumbs items={[{ label: 'Головна', href: '/' }, { label: 'Запис' }]} />
+      <div class="hero-copy">
+        <p class="eyebrow">Запис на прийом</p>
+        <h1>Залиште запит у зручний спосіб</h1>
+        <p class="lead">
+          Вкажіть послугу та бажані дату й час. Після заповнення на вашому пристрої
+          відкриється готове SMS для надсилання до «Лікар Поруч».
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="booking-section">
+    <div class="container booking-grid">
+      <AppointmentForm />
+
+      <aside class="booking-aside" aria-labelledby="booking-aside-title">
+        <div>
+          <p class="aside-kicker">Що далі</p>
+          <h2 id="booking-aside-title">Запит — ще не підтверджений запис</h2>
+          <ol>
+            <li>
+              <span>1</span>
+              <p>Перевірте підготовлений текст і надішліть SMS.</p>
+            </li>
+            <li>
+              <span>2</span>
+              <p>Дочекайтеся підтвердження дати й часу від медичного центру.</p>
+            </li>
+            <li>
+              <span>3</span>
+              <p>Завітайте за адресою: вул. Хоральська, 1А.</p>
+            </li>
+          </ol>
+        </div>
+        <div class="urgent-note">
+          <strong>Потрібна невідкладна допомога?</strong>
+          <p>Не використовуйте форму запису. За загрози життю телефонуйте 103 або 112.</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .booking-hero {
+    padding-bottom: clamp(3rem, 7vw, 5.5rem);
+  }
+
+  .hero-copy {
+    max-width: 900px;
+  }
+
+  .hero-copy h1 {
+    max-width: 13ch;
+  }
+
+  .hero-copy .lead {
+    max-width: 62ch;
+  }
+
+  .booking-section {
+    padding: clamp(3.5rem, 7vw, 7rem) 0;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(217, 243, 232, 0.8), transparent 32rem),
+      var(--mist);
+  }
+
+  .booking-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.36fr);
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: start;
+  }
+
+  .booking-grid > * {
+    min-width: 0;
+  }
+
+  .booking-aside {
+    position: sticky;
+    top: 98px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .booking-aside > div {
+    padding: clamp(1.35rem, 3vw, 2rem);
+    border-radius: 20px;
+    background: var(--white);
+    border: 1px solid var(--line);
+  }
+
+  .aside-kicker {
+    margin-bottom: 0.65rem;
+    color: var(--blue-dark);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .booking-aside h2 {
+    margin-bottom: 1.5rem;
+    font-size: clamp(1.55rem, 3vw, 2.25rem);
+  }
+
+  .booking-aside ol {
+    display: grid;
+    gap: 1.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .booking-aside li {
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .booking-aside li span {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--blue-dark);
+    background: var(--ice);
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .booking-aside li p,
+  .urgent-note p {
+    margin: 0;
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .booking-aside .urgent-note {
+    border-color: #ecd8b0;
+    background: #fff9e9;
+  }
+
+  .urgent-note strong {
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  @media (max-width: 920px) {
+    .booking-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-aside {
+      position: static;
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 0.5fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .booking-aside {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

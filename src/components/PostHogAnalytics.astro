@@ -1,0 +1,30 @@
+<script>
+  import posthog from 'posthog-js';
+
+  const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY?.trim();
+  const posthogHost =
+    import.meta.env.PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
+  const doNotTrackEnabled =
+    navigator.doNotTrack === '1' || navigator.doNotTrack === 'yes';
+
+  if (posthogKey && !doNotTrackEnabled) {
+    posthog.init(posthogKey, {
+      api_host: posthogHost,
+      person_profiles: 'identified_only',
+      capture_pageview: true,
+      capture_pageleave: true,
+      disable_session_recording: true,
+      autocapture: false,
+      cookieless_mode: 'always',
+      respect_dnt: true,
+    });
+
+    window.addEventListener('likar:booking_started', () => {
+      posthog.capture('booking_started');
+    });
+
+    window.addEventListener('likar:booking_submitted', () => {
+      posthog.capture('booking_submitted');
+    });
+  }
+</script>

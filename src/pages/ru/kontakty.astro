@@ -1,0 +1,50 @@
+---
+import RussianLayout from '../../layouts/RussianLayout.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const phone = '+380931080095';
+const phoneDisplay = '+38 (093) 108-00-95';
+const address = 'ул. Хоральская, 1А, Киев';
+const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+---
+<RussianLayout
+  title="Контакты медицинского центра в Киеве | Лікар Поруч"
+  description="Контакты частного медицинского центра «Лікар Поруч» в Киеве. Адрес: ул. Хоральская, 1А. Телефон для записи: +380931080095."
+  path="/ru/kontakty/"
+  ukPath="/kontakty/"
+>
+  <section class="page-hero">
+    <div class="container">
+      <nav class="breadcrumbs" aria-label="Навигационная цепочка"><a href={`${base}/ru/`}>Главная</a><span aria-hidden="true">/</span><span aria-current="page">Контакты</span></nav>
+      <p class="eyebrow">Контакты</p>
+      <h1>Свяжитесь с медицинским центром напрямую</h1>
+      <p class="lead">Это контакты частного медицинского центра «Лікар Поруч» в Киеве, а не службы подбора врачей. Перед визитом позвоните, чтобы уточнить услугу и договориться о времени приема.</p>
+    </div>
+  </section>
+  <section class="section">
+    <div class="container contact-page-grid">
+      <div class="contact-primary">
+        <span>Телефон для записи</span>
+        <a href={`tel:${phone}`}>{phoneDisplay}</a>
+        <p>Нажмите на номер, чтобы позвонить с мобильного.</p>
+        <a class="button" href={`tel:${phone}`}>Позвонить в центр</a>
+      </div>
+      <div class="contact-address">
+        <span>Адрес</span>
+        <h2>{address}</h2>
+        <a class="button secondary" href={mapUrl} target="_blank" rel="noopener">Построить маршрут</a>
+      </div>
+    </div>
+  </section>
+  <section class="section section-ice">
+    <div class="container narrow">
+      <p class="eyebrow">Перед звонком</p>
+      <h2>Что стоит сообщить</h2>
+      <div class="faq-list">
+        <details open><summary>Кого нужно записать</summary><p>Скажите, консультация нужна взрослому или ребенку, и кратко опишите основной запрос.</p></details>
+        <details><summary>Какая услуга вас интересует</summary><p>Семейный врач, консультация эндокринолога или диагностическое обследование.</p></details>
+        <details><summary>Есть ли неотложные симптомы</summary><p>При угрозе жизни не ждите планового приема. Звоните 103 или 112.</p></details>
+      </div>
+    </div>
+  </section>
+</RussianLayout>

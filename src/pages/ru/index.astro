@@ -1,0 +1,80 @@
+---
+import RussianLayout from '../../layouts/RussianLayout.astro';
+import site from '../../data/site-ru.json';
+import serviceData from '../../data/services.json';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const phone = site.phone;
+const phoneDisplay = site.phoneDisplay;
+const services = serviceData.map((service, index) => ({
+  number: String(index + 1).padStart(2, '0'),
+  title: service.titleRu,
+  text: service.summaryRu,
+  points: service.itemsRu.slice(0, 3)
+}));
+---
+<RussianLayout
+  title="Частный медицинский центр в Киеве | Лікар Поруч"
+  description="Частный медицинский центр «Лікар Поруч» в Киеве: семейный врач, эндокринолог и быстрая диагностика. Адрес: ул. Хоральская, 1А."
+  path="/ru/"
+  ukPath="/"
+>
+  <section class="hero clinic-hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Частный медицинский центр в Киеве</p>
+        <h1>Здоровье ближе. <em>Врач рядом.</em></h1>
+        <p class="lead">Медицинская помощь взрослым и детям: семейный врач, эндокринолог и быстрая диагностика в одном центре на ул. Хоральской, 1А.</p>
+        <div class="clinic-actions">
+          <a class="button" href={`${base}/ru/zapis/`}>Записаться на приём</a>
+          <a class="button secondary" href={`${base}/ru/uslugi/`}>Посмотреть услуги</a>
+        </div>
+        <div class="micro-trust"><span>Прямая запись в центр</span><span>Диагностика на месте</span></div>
+      </div>
+      <div class="hero-photo clinic-photo">
+        <img src={`${base}/images/clinic-doctor.webp`} width="475" height="720" alt="Интерьер частного медицинского центра «Лікар Поруч» в Киеве" fetchpriority="high" />
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="uslugi">
+    <div class="container">
+      <div class="section-head">
+        <div><p class="eyebrow">Медицинская помощь рядом</p><h2>Основные направления</h2></div>
+        <p class="lead">Вы обращаетесь напрямую в частный медицинский центр, а не в агрегатор или каталог врачей.</p>
+      </div>
+      <div class="clinic-services">
+        {services.map((service) => (
+          <article class="clinic-service">
+            <span>{service.number}</span><h3>{service.title}</h3><p>{service.text}</p>
+            <ul>{service.points.map((point) => <li>{point}</li>)}</ul>
+          </article>
+        ))}
+      </div>
+      <div class="section-cta"><a class="button" href={`${base}/ru/uslugi/`}>Все услуги</a></div>
+    </div>
+  </section>
+
+  <section class="section section-ink">
+    <div class="container trust-grid">
+      <div>
+        <p class="eyebrow">Забота без лишнего стресса</p>
+        <h2>Один центр для повседневных медицинских вопросов</h2>
+        <p class="lead">Согласуйте консультацию и время визита напрямую с медицинским центром.</p>
+        <a class="button yellow" href={`tel:${phone}`}>Позвонить</a>
+      </div>
+      <div class="method-list">
+        <div class="method-item"><div><h3>Для взрослых и детей</h3><p>Семейная медицина с учетом возраста, истории здоровья и потребностей семьи.</p></div></div>
+        <div class="method-item"><div><h3>Диагностика на месте</h3><p>Базовые измерения, экспресс-тесты и ЭКГ без поездки в другое учреждение.</p></div></div>
+        <div class="method-item"><div><h3>Прямая связь</h3><p>Позвоните, чтобы уточнить услугу и договориться о визите.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section contact-band">
+    <div class="container contact-band-grid">
+      <div><p class="eyebrow">Мы рядом</p><h2>ул. Хоральская, 1А, Киев</h2><p class="lead">Уточните подходящую услугу и договоритесь о времени приема.</p></div>
+      <div class="contact-number"><span>Запись по телефону</span><a href={`tel:${phone}`}>{phoneDisplay}</a><a class="text-link" href={`${base}/ru/kontakty/`}>Контакты и маршрут →</a></div>
+    </div>
+  </section>
+</RussianLayout>

@@ -19,6 +19,40 @@ content:
       - { name: phoneDisplay, label: Телефон для показу, type: string, required: true }
       - { name: emergencyNotice, label: Екстрене повідомлення, type: text, required: true }
       - { name: medicalDisclaimer, label: Медичне застереження, type: text, required: true }
+  - name: siteRu
+    label: Налаштування російської версії
+    type: file
+    path: src/data/site-ru.json
+    format: json
+    fields:
+      - { name: name, label: Название, type: string, required: true }
+      - { name: tagline, label: Слоган, type: text, required: true }
+      - { name: practiceDescription, label: Описание практики, type: text, required: true }
+      - { name: address, label: Адрес, type: string, required: true }
+      - { name: phone, label: Телефон в международном формате, type: string, required: true }
+      - { name: phoneDisplay, label: Телефон для показа, type: string, required: true }
+      - { name: emergencyNotice, label: Экстренное сообщение, type: text, required: true }
+      - { name: medicalDisclaimer, label: Медицинское примечание, type: text, required: true }
+  - name: services
+    label: Послуги / Услуги
+    type: file
+    path: src/data/services.json
+    format: json
+    list: true
+    fields:
+      - { name: slug, label: Ідентифікатор, type: string, required: true }
+      - { name: titleUk, label: Назва українською, type: string, required: true }
+      - { name: titleRu, label: Название на русском, type: string, required: true }
+      - { name: summaryUk, label: Опис українською, type: text, required: true }
+      - { name: summaryRu, label: Описание на русском, type: text, required: true }
+      - name: itemsUk
+        label: Пункти українською
+        type: string
+        list: true
+      - name: itemsRu
+        label: Пункты на русском
+        type: string
+        list: true
   - name: articles
     label: Статті
     type: file

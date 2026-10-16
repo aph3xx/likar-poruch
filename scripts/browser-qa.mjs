@@ -21,11 +21,20 @@ try{
   await page.close();
  }
  const page=await browser.newPage({viewport:{width:1280,height:800}});
- for(const route of ['/posluhy/','/pro-nas/','/kontakty/','/zhurnal/']){const response=await page.goto(`${base}${route}`,{waitUntil:'networkidle'});if(!response?.ok())throw new Error(`${route}: ${response?.status()}`);if(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth))throw new Error(`${route}: horizontal overflow`);}
+ for(const route of ['/posluhy/','/pro-nas/','/kontakty/','/zapys/','/zhurnal/','/ru/','/ru/uslugi/','/ru/kontakty/','/ru/zapis/']){const response=await page.goto(`${base}${route}`,{waitUntil:'networkidle'});if(!response?.ok())throw new Error(`${route}: ${response?.status()}`);if(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth))throw new Error(`${route}: horizontal overflow`);}
+ await page.goto(`${base}/zapys/`,{waitUntil:'networkidle'});
+ const booking=page.locator('[data-appointment-form]');
+ if(!(await booking.isVisible()))throw new Error('booking form missing');
+ await booking.locator('button[type="submit"]').click();
+ if(!(await page.locator('[data-error-summary]').isVisible()))throw new Error('booking validation summary missing');
+ await page.goto(`${base}/ru/`,{waitUntil:'networkidle'});
+ if(await page.getAttribute('html','lang')!=='ru')throw new Error('Russian page language missing');
+ if(!(await page.locator('link[rel="alternate"][hreflang="uk"]').count()))throw new Error('Russian page Ukrainian hreflang missing');
+ if(!(await page.locator('link[rel="alternate"][hreflang="ru"]').count()))throw new Error('Russian page Russian hreflang missing');
  await page.goto(`${base}/`,{waitUntil:'networkidle'});
  const schemas=await page.locator('script[type="application/ld+json"]').evaluateAll(nodes=>nodes.flatMap(n=>{const x=JSON.parse(n.textContent||'{}');return Array.isArray(x)?x:[x]}));
  if(!schemas.some(x=>x['@type']==='MedicalClinic'))throw new Error('MedicalClinic JSON-LD missing');
  if(schemas.some(x=>['ItemList','ProfilePage'].includes(x['@type'])))throw new Error('stale aggregator schema found');
  await page.close();
- console.log('Clinic browser QA passed at 360px, 768px, 1280px, and 1440px: navigation, phone CTAs, clinic copy, MedicalClinic schema, console, and overflow checks pass.');
+ console.log('Clinic browser QA passed at 360px, 768px, 1280px, and 1440px: Ukrainian and Russian routes, hreflang, booking validation, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.');
 }finally{await browser.close();}

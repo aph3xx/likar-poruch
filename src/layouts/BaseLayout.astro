@@ -1,18 +1,23 @@
 ---
 import '../styles/global.css';
 import siteSettings from '../data/site.json';
-interface Props { title:string; description:string; path?:string; image?:string; type?:'website'|'article'|'profile'; noindex?:boolean; schema?:Record<string,unknown>|Record<string,unknown>[]; }
-const { title, description, path='/', image='/images/clinic-doctor.webp', type='website', noindex=false, schema } = Astro.props;
+import PostHogAnalytics from '../components/PostHogAnalytics.astro';
+interface Props { title:string; description:string; path?:string; image?:string; type?:'website'|'article'|'profile'; noindex?:boolean; schema?:Record<string,unknown>|Record<string,unknown>[]; ruPath?:string; }
+const { title, description, path='/', image='/images/clinic-doctor.webp', type='website', noindex=false, schema, ruPath } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const siteOrigin = 'https://aph3xx.github.io';
 const normalizedPath = path === '/' ? '/' : `/${path.replace(/^\/+|\/+$/g, '')}/`;
 const canonical = `${siteOrigin}${base}${normalizedPath}`;
+const defaultRuPaths: Record<string,string> = {'/':'/ru/','/posluhy/':'/ru/uslugi/','/kontakty/':'/ru/kontakty/','/zapys/':'/ru/zapis/'};
+const resolvedRuPath = ruPath || defaultRuPaths[normalizedPath];
+const russianUrl = resolvedRuPath ? `${siteOrigin}${base}${resolvedRuPath}` : undefined;
 const imageUrl = image.startsWith('http') ? image : `${siteOrigin}${base}${image}`;
 const nav = [
   { href:'/posluhy/', label:'Послуги' },
   { href:'/pro-nas/', label:'Про центр' },
   { href:'/zhurnal/', label:'Матеріали' },
-  { href:'/kontakty/', label:'Контакти' }
+  { href:'/kontakty/', label:'Контакти' },
+  { href:'/zapys/', label:'Запис' }
 ];
 const href = (value:string) => `${base}${value}`;
 ---
@@ -21,9 +26,9 @@ const href = (value:string) => `${base}${value}`;
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{title}</title><meta name="description" content={description} /><link rel="canonical" href={canonical} />
-  <link rel="alternate" hreflang="uk" href={canonical} /><link rel="alternate" hreflang="x-default" href={canonical} />
+  <link rel="alternate" hreflang="uk" href={canonical} />{russianUrl && <link rel="alternate" hreflang="ru" href={russianUrl} />}<link rel="alternate" hreflang="x-default" href={canonical} />
   <meta name="robots" content={noindex?'noindex, nofollow':'index, follow, max-image-preview:large'} /><meta name="theme-color" content="#0b2d69" />
-  <meta property="og:locale" content="uk_UA" /><meta property="og:type" content={type} /><meta property="og:site_name" content={siteSettings.name} />
+  <meta property="og:locale" content="uk_UA" />{russianUrl && <meta property="og:locale:alternate" content="ru_UA" />}<meta property="og:type" content={type} /><meta property="og:site_name" content={siteSettings.name} />
   <meta property="og:title" content={title} /><meta property="og:description" content={description} /><meta property="og:url" content={canonical} />
   <meta property="og:image" content={imageUrl} /><meta property="og:image:alt" content="Медичний центр «Лікар Поруч»" />
   <meta name="twitter:card" content="summary_large_image" /><meta name="twitter:title" content={title} /><meta name="twitter:description" content={description} /><meta name="twitter:image" content={imageUrl} />
@@ -36,8 +41,8 @@ const href = (value:string) => `${base}${value}`;
   <header class="site-header"><div class="header-inner">
     <a class="brand" href={href('/')} aria-label={`${siteSettings.name}, головна`}><img class="brand-logo" src={href('/brand/mark.svg')} alt="" width="34" height="38" /><span>{siteSettings.name}</span></a>
     <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span><span class="sr-only">Відкрити меню</span></button>
-    <nav id="site-nav" class="site-nav" aria-label="Основна навігація">{nav.map((item)=><a href={href(item.href)}>{item.label}</a>)}</nav>
-    <a class="header-cta" href={`tel:${siteSettings.phone}`}>Записатися</a>
+    <nav id="site-nav" class="site-nav" aria-label="Основна навігація">{nav.map((item)=><a href={href(item.href)}>{item.label}</a>)}{russianUrl && <a href={russianUrl} lang="ru" hreflang="ru">RU</a>}</nav>
+    <a class="header-cta" href={href('/zapys/')}>Записатися</a>
   </div></header>
   <main id="content"><slot /></main>
   <footer class="site-footer"><div class="footer-grid">
@@ -46,6 +51,7 @@ const href = (value:string) => `${base}${value}`;
     <div><h2>Зв’язок</h2><a href={`tel:${siteSettings.phone}`}>{siteSettings.phoneDisplay}</a><p>{siteSettings.address}</p><a href={href('/privacy/')}>Приватність</a></div>
     <div><h2>Важливо</h2><p>{siteSettings.emergencyNotice}</p><p>{siteSettings.medicalDisclaimer}</p></div>
   </div><div class="footer-bottom"><span>© 2026 {siteSettings.name}</span><span>Приватна медична практика</span></div></footer>
+  <PostHogAnalytics />
   <script is:inline>
     const toggle=document.querySelector('.menu-toggle');const nav=document.querySelector('#site-nav');toggle?.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));nav?.classList.toggle('is-open',!open);});
   </script>

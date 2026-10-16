@@ -9,9 +9,9 @@ const errors=[];
 const existing=new Set();
 function routeFor(file){let rel=path.relative(root,file).split(path.sep).join('/');if(rel==='index.html')return '/likar-poruch/';if(rel.endsWith('/index.html'))return '/likar-poruch/'+rel.slice(0,-10)+'/';return '/likar-poruch/'+rel;}
 for(const file of files)existing.add(routeFor(file).replace(/\/+/g,'/'));
-for(const file of files){const html=fs.readFileSync(file,'utf8');const rel=path.relative(root,file);const checks=[
+for(const file of files){const html=fs.readFileSync(file,'utf8');const rel=path.relative(root,file);const expectedLang=rel.startsWith(`ru${path.sep}`)?'ru':'uk';const checks=[
   [(html.match(/<h1(?:\s|>)/gi)||[]).length===1,'exactly one H1'],
-  [/<html[^>]+lang="uk"/i.test(html),'html lang=uk'],
+  [new RegExp(`<html[^>]+lang="${expectedLang}"`,'i').test(html),`html lang=${expectedLang}`],
   [/<title>[^<]{10,}<\/title>/i.test(html),'non-empty title'],
   [/<meta[^>]+name="description"[^>]+content="[^"]{40,}"/i.test(html),'meta description'],
   [/<link[^>]+rel="canonical"[^>]+href="https:\/\/aph3xx\.github\.io\/likar-poruch\//i.test(html),'canonical']

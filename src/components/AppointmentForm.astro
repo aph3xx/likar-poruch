@@ -1,0 +1,514 @@
+---
+import serviceData from '../data/services.json';
+const bookingPhone = '+380931080095';
+const bookingPhoneDisplay = '093 108 00 95';
+const serviceOptions = serviceData.map((service) => service.titleUk);
+---
+
+<section class="appointment-card" aria-labelledby="appointment-form-title">
+  <div class="form-heading">
+    <p class="form-kicker">Запит на запис</p>
+    <h2 id="appointment-form-title">Оберіть бажані дату й час</h2>
+    <p>
+      Заповніть коротку форму — ми підготуємо SMS, яке ви зможете перевірити та
+      надіслати зі свого телефона.
+    </p>
+  </div>
+
+  <form class="appointment-form" data-appointment-form novalidate>
+    <div class="error-summary" data-error-summary role="alert" tabindex="-1" hidden>
+      <strong>Перевірте, будь ласка, дані</strong>
+      <ul data-error-list></ul>
+    </div>
+
+    <div class="field field-wide">
+      <label for="booking-name">Ім’я та прізвище</label>
+      <input
+        id="booking-name"
+        name="name"
+        type="text"
+        autocomplete="name"
+        maxlength="80"
+        aria-describedby="booking-name-hint booking-name-error"
+        data-validate
+        required
+      />
+      <span class="field-hint" id="booking-name-hint">Як до вас звертатися під час підтвердження.</span>
+      <span class="field-error" id="booking-name-error" aria-live="polite"></span>
+    </div>
+
+    <div class="field field-wide">
+      <label for="booking-phone">Номер телефона</label>
+      <input
+        id="booking-phone"
+        name="phone"
+        type="tel"
+        autocomplete="tel"
+        inputmode="tel"
+        maxlength="24"
+        placeholder="Наприклад, 093 123 45 67"
+        aria-describedby="booking-phone-hint booking-phone-error"
+        data-validate
+        required
+      />
+      <span class="field-hint" id="booking-phone-hint">Вкажіть номер із кодом оператора або країни.</span>
+      <span class="field-error" id="booking-phone-error" aria-live="polite"></span>
+    </div>
+
+    <div class="field field-wide">
+      <label for="booking-service">Послуга</label>
+      <select
+        id="booking-service"
+        name="service"
+        aria-describedby="booking-service-hint booking-service-error"
+        data-validate
+        required
+      >
+        <option value="">Оберіть послугу</option>
+        {serviceOptions.map((service) => <option value={service}>{service}</option>)}
+      </select>
+      <span class="field-hint" id="booking-service-hint">Доступність послуги підтвердимо окремо.</span>
+      <span class="field-error" id="booking-service-error" aria-live="polite"></span>
+    </div>
+
+    <div class="field">
+      <label for="booking-date">Бажана дата</label>
+      <input
+        id="booking-date"
+        name="date"
+        type="date"
+        aria-describedby="booking-date-hint booking-date-error"
+        data-validate
+        required
+      />
+      <span class="field-hint" id="booking-date-hint">Оберіть сьогоднішню або майбутню дату.</span>
+      <span class="field-error" id="booking-date-error" aria-live="polite"></span>
+    </div>
+
+    <div class="field">
+      <label for="booking-time">Бажаний час</label>
+      <input
+        id="booking-time"
+        name="time"
+        type="time"
+        aria-describedby="booking-time-hint booking-time-error"
+        data-validate
+        required
+      />
+      <span class="field-hint" id="booking-time-hint">Час є побажанням і потребує підтвердження.</span>
+      <span class="field-error" id="booking-time-error" aria-live="polite"></span>
+    </div>
+
+    <div class="privacy-note field-wide">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24">
+        <path d="M12 3 5.5 5.6v5.7c0 4.4 2.7 8.3 6.5 9.7 3.8-1.4 6.5-5.3 6.5-9.7V5.6L12 3Zm0 2.2 4.5 1.8v4.3c0 3.3-1.9 6.3-4.5 7.5-2.6-1.2-4.5-4.2-4.5-7.5V7L12 5.2Zm-1 3.3h2v5h-2v-5Zm0 6.5h2v2h-2v-2Z" />
+      </svg>
+      <p>
+        <strong>Сайт не зберігає введені дані.</strong> Вони не надсилаються на сервер:
+        після перевірки відкриється SMS-застосунок на вашому пристрої. Не додавайте
+        діагнози, результати обстежень чи інші чутливі медичні відомості.
+      </p>
+    </div>
+
+    <div class="form-actions field-wide">
+      <button class="submit-button" type="submit">
+        Підготувати SMS
+        <span aria-hidden="true">→</span>
+      </button>
+      <p>
+        Не відкривається SMS?
+        <a href={`tel:${bookingPhone}`}>Зателефонуйте: {bookingPhoneDisplay}</a>
+      </p>
+    </div>
+
+    <p class="submit-status field-wide" data-submit-status role="status" aria-live="polite"></p>
+  </form>
+</section>
+
+<script>
+  const form = document.querySelector('[data-appointment-form]');
+
+  if (form instanceof HTMLFormElement) {
+    const fields = Array.from(form.querySelectorAll('[data-validate]')).filter(
+      (field) => field instanceof HTMLInputElement || field instanceof HTMLSelectElement,
+    );
+    const dateField = form.elements.namedItem('date');
+    const summary = form.querySelector('[data-error-summary]');
+    const errorList = form.querySelector('[data-error-list]');
+    const status = form.querySelector('[data-submit-status]');
+    let startedEventSent = false;
+
+    const today = () => {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60_000;
+      return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+    };
+
+    if (dateField instanceof HTMLInputElement) {
+      dateField.min = today();
+    }
+
+    const dispatchStarted = () => {
+      if (startedEventSent) return;
+      startedEventSent = true;
+      window.dispatchEvent(
+        new CustomEvent('likar:booking_started', {
+          detail: { form: 'appointment_request' },
+        }),
+      );
+    };
+
+    const errorMessage = (field: HTMLInputElement | HTMLSelectElement) => {
+      const value = field.value.trim();
+
+      if (field.name === 'name') {
+        if (!value) return 'Вкажіть ім’я та прізвище.';
+        const letterCount = Array.from(value).filter((character) => /\p{L}/u.test(character)).length;
+        if (letterCount < 2) return 'Введіть щонайменше дві літери.';
+      }
+
+      if (field.name === 'phone') {
+        if (!value) return 'Вкажіть номер телефона.';
+        if (!/^\+?[\d\s().-]+$/.test(value)) return 'Використовуйте лише цифри та символи + ( ) . -';
+        const digitCount = value.replace(/\D/g, '').length;
+        if (digitCount < 10 || digitCount > 15) return 'Введіть номер, що містить від 10 до 15 цифр.';
+      }
+
+      if (field.name === 'service' && !value) return 'Оберіть послугу.';
+
+      if (field.name === 'date') {
+        if (!value) return 'Оберіть бажану дату.';
+        if (field.validity.badInput) return 'Введіть дату у правильному форматі.';
+        if (value < today()) return 'Оберіть сьогоднішню або майбутню дату.';
+      }
+
+      if (field.name === 'time') {
+        if (!value) return 'Оберіть бажаний час.';
+        if (field.validity.badInput) return 'Введіть час у правильному форматі.';
+      }
+
+      return '';
+    };
+
+    const validateField = (field: HTMLInputElement | HTMLSelectElement) => {
+      const message = errorMessage(field);
+      const error = document.getElementById(`${field.id}-error`);
+      field.setCustomValidity(message);
+      field.setAttribute('aria-invalid', message ? 'true' : 'false');
+      if (error) error.textContent = message;
+      return !message;
+    };
+
+    const hideSummary = () => {
+      if (summary instanceof HTMLElement) summary.hidden = true;
+      if (errorList) errorList.replaceChildren();
+    };
+
+    form.addEventListener('input', (event) => {
+      dispatchStarted();
+      const field = event.target;
+      if (
+        (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) &&
+        field.matches('[data-validate]') &&
+        field.getAttribute('aria-invalid') === 'true'
+      ) {
+        validateField(field);
+      }
+    });
+
+    form.addEventListener('change', (event) => {
+      dispatchStarted();
+      const field = event.target;
+      if (
+        (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) &&
+        field.matches('[data-validate]')
+      ) {
+        validateField(field);
+      }
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      hideSummary();
+
+      const invalidFields = fields.filter((field) => !validateField(field));
+      if (invalidFields.length > 0) {
+        if (errorList) {
+          invalidFields.forEach((field) => {
+            const item = document.createElement('li');
+            const link = document.createElement('a');
+            link.href = `#${field.id}`;
+            link.textContent = errorMessage(field);
+            item.append(link);
+            errorList.append(item);
+          });
+        }
+        if (summary instanceof HTMLElement) {
+          summary.hidden = false;
+          summary.focus();
+        }
+        return;
+      }
+
+      const data = new FormData(form);
+      const dateValue = String(data.get('date'));
+      const formattedDate = new Intl.DateTimeFormat('uk-UA', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(new Date(`${dateValue}T00:00:00`));
+      const message = [
+        'Вітаю! Хочу залишити запит на запис у «Лікар Поруч».',
+        `Ім’я: ${String(data.get('name')).trim()}`,
+        `Телефон: ${String(data.get('phone')).trim()}`,
+        `Послуга: ${String(data.get('service'))}`,
+        `Бажані дата й час: ${formattedDate}, ${String(data.get('time'))}`,
+        'Розумію, що дату й час потрібно підтвердити.',
+      ].join('\n');
+      const separator = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
+      const smsUrl = `sms:+380931080095${separator}body=${encodeURIComponent(message)}`;
+
+      window.dispatchEvent(
+        new CustomEvent('likar:booking_submitted', {
+          detail: { form: 'appointment_request', channel: 'sms' },
+        }),
+      );
+      if (status) {
+        status.textContent = 'SMS підготовлено. Перевірте текст у застосунку перед надсиланням.';
+      }
+      window.location.assign(smsUrl);
+    });
+  }
+</script>
+
+<style>
+  .appointment-card {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: var(--white);
+    box-shadow: var(--shadow);
+  }
+
+  .form-heading {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    background: var(--ice);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .form-kicker {
+    margin-bottom: 0.7rem;
+    color: var(--blue-dark);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .form-heading h2 {
+    max-width: 17ch;
+    margin-bottom: 0.85rem;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+  }
+
+  .form-heading > p:last-child {
+    max-width: 62ch;
+    margin-bottom: 0;
+    color: var(--ink-2);
+    font-size: 1.05rem;
+  }
+
+  .appointment-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.35rem 1.1rem;
+    padding: clamp(1.5rem, 4vw, 3rem);
+  }
+
+  .field {
+    min-width: 0;
+  }
+
+  .field-wide,
+  .error-summary {
+    grid-column: 1 / -1;
+  }
+
+  label {
+    display: inline-block;
+    margin-bottom: 0.45rem;
+    color: var(--ink);
+    font-weight: 750;
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-height: 52px;
+    padding: 0.75rem 0.9rem;
+    border: 1.5px solid #aebdcd;
+    border-radius: 12px;
+    color: var(--ink);
+    background: var(--white);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  input:hover,
+  select:hover {
+    border-color: #72869b;
+  }
+
+  input:focus,
+  select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(23, 105, 224, 0.13);
+  }
+
+  input[aria-invalid='true'],
+  select[aria-invalid='true'] {
+    border-color: #b42318;
+  }
+
+  .field-hint,
+  .field-error {
+    display: block;
+    margin-top: 0.38rem;
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .field-hint {
+    color: var(--muted);
+  }
+
+  .field-error {
+    min-height: 1.2em;
+    color: #9f2018;
+    font-weight: 650;
+  }
+
+  .error-summary {
+    padding: 1rem 1.1rem;
+    border: 2px solid #b42318;
+    border-radius: 12px;
+    background: #fff4f2;
+  }
+
+  .error-summary strong {
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .error-summary ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .error-summary a {
+    color: #7a1913;
+    font-weight: 650;
+  }
+
+  .privacy-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: var(--mist);
+  }
+
+  .privacy-note svg {
+    flex: 0 0 auto;
+    fill: var(--blue-dark);
+  }
+
+  .privacy-note p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .form-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .submit-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    min-height: 54px;
+    padding: 0.8rem 1.25rem;
+    border: 0;
+    border-radius: 12px;
+    color: var(--white);
+    background: var(--blue);
+    font-weight: 780;
+    cursor: pointer;
+    transition: background 160ms ease, transform 160ms ease;
+  }
+
+  .submit-button:hover {
+    background: var(--blue-dark);
+    transform: translateY(-1px);
+  }
+
+  .submit-button:active {
+    transform: translateY(0);
+  }
+
+  .form-actions p,
+  .submit-status {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .form-actions a {
+    color: var(--blue-dark);
+    font-weight: 720;
+  }
+
+  .submit-status:not(:empty) {
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    color: #154f39;
+    background: var(--mint);
+    font-weight: 650;
+  }
+
+  @media (max-width: 640px) {
+    .appointment-card {
+      border-radius: 20px;
+    }
+
+    .appointment-form {
+      grid-template-columns: 1fr;
+    }
+
+    .field-wide,
+    .error-summary {
+      grid-column: auto;
+    }
+
+    .submit-button {
+      width: 100%;
+    }
+
+    .form-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    input,
+    select,
+    .submit-button {
+      transition: none;
+    }
+  }
+</style>
