@@ -36,7 +36,25 @@ test('rejects root-relative links outside the configured base path', () => {
     const html = fs.readFileSync(indexPath, 'utf8');
     fs.writeFileSync(indexPath, html.replace('</body>', '<a href="/definitely-missing/">Missing</a></body>'));
   });
-  assert.match(output, /index\.html: broken internal link \/definitely-missing\//);
+  assert.match(output, /index\.html: internal link escapes configured base \/definitely-missing\//);
+});
+
+test('rejects root-relative links that bypass the configured base to an existing route', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="/kontakty/">Контакти</a></body>'));
+  });
+  assert.match(output, /index\.html: internal link escapes configured base \/kontakty\//);
+});
+
+test('rejects same-origin absolute links that bypass the configured base', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="https://aph3xx.github.io/kontakty/">Контакти</a></body>'));
+  });
+  assert.match(output, /index\.html: internal link escapes configured base https:\/\/aph3xx\.github\.io\/kontakty\//);
 });
 
 test('rejects privacy pages that become indexable', () => {

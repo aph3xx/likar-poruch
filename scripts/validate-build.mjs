@@ -59,9 +59,21 @@ for (const file of files) {
   if (title) titles.set(title, [...(titles.get(title) || []), route]);
   if (description) descriptions.set(description, [...(descriptions.get(description) || []), route]);
 
-  for (const match of html.matchAll(/href="(\/[^\"]*)"/g)) {
+  for (const match of html.matchAll(/href="([^\"]*)"/g)) {
     const originalHref = match[1];
-    let href = originalHref.split(/[?#]/)[0];
+    const hrefWithoutQuery = originalHref.split(/[?#]/)[0];
+    let href = hrefWithoutQuery;
+    if (!href.startsWith('/') && !/^https?:\/\//i.test(href) && !href.startsWith('//')) continue;
+    if (/^https?:\/\//i.test(href) || href.startsWith('//')) {
+      let absolute;
+      try { absolute = new URL(href, siteOrigin); } catch { continue; }
+      if (absolute.origin !== new URL(siteOrigin).origin) continue;
+      href = absolute.pathname;
+    }
+    if (href.startsWith('/') && href !== basePath && !href.startsWith(`${basePath}/`)) {
+      errors.push(`${rel}: internal link escapes configured base ${originalHref}`);
+      continue;
+    }
     if (/\.(svg|webp|png|jpg|xml|webmanifest|txt|css|js|ico)$/i.test(href)) continue;
     if (href === '/') href = `${basePath}/`;
     else if (!href.startsWith(`${basePath}/`)) href = `${basePath}${href}`;
