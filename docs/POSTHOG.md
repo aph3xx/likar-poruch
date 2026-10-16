@@ -1,6 +1,6 @@
 # PostHog analytics setup
 
-The site has a browser analytics component at `src/components/PostHogAnalytics.astro`, the official `posthog-js` dependency is installed, and both shared language layouts render the component. It only initializes when `PUBLIC_POSTHOG_KEY` is present. Until a real PostHog project key is configured, the deployed site remains intentionally analytics-disabled.
+The site has a browser analytics component at `src/components/PostHogAnalytics.astro`, the official `posthog-js` dependency is installed, and the single shared Ukrainian layout at `src/layouts/BaseLayout.astro` renders the component for every page. It only initializes when `PUBLIC_POSTHOG_KEY` is present. Until a real PostHog project key is configured, the deployed site remains intentionally analytics-disabled.
 
 ## Privacy defaults
 
@@ -18,7 +18,7 @@ Do not add patient, health, contact, or free-text data to PostHog event properti
 
 ## Application integration
 
-The SDK is installed, the component is mounted once in each shared layout, and GitHub Actions passes the two repository variables to both `astro check` and the production build. No additional source-code integration is required.
+The SDK is installed, the component is mounted once in the shared Ukrainian layout, and GitHub Actions passes the two repository variables to both `astro check` and the production build. No additional source-code integration is required.
 
 ## Environment variables
 
@@ -70,7 +70,7 @@ Do not attach names, phone numbers, symptoms, or other personal/medical informat
 
 ## Verification in PostHog
 
-After the SDK is installed, the component is mounted, a real project key is configured, and GitHub Pages is redeployed:
+After the SDK is installed, the component is mounted, a real project key is configured, and the private SUR site is redeployed from a clean `main` checkout with `npm run deploy:sur`:
 
 1. In PostHog, open the correct project and go to **Activity → Live Events**.
 2. Open the deployed site in a browser where Do Not Track is off and disable content blockers for the test if necessary.

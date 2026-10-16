@@ -17,7 +17,7 @@ function runMutation(mutate) {
   try {
     execFileSync(process.execPath, [validator], {
       cwd: projectRoot,
-      env: { ...process.env, VALIDATE_BUILD_ROOT: distRoot, PUBLIC_SITE_URL: 'https://aph3xx.github.io' },
+      env: { ...process.env, VALIDATE_BUILD_ROOT: distRoot, PUBLIC_SITE_URL: 'https://example.test' },
       encoding: 'utf8',
       stdio: 'pipe'
     });
@@ -36,7 +36,25 @@ test('rejects root-relative links outside the configured base path', () => {
     const html = fs.readFileSync(indexPath, 'utf8');
     fs.writeFileSync(indexPath, html.replace('</body>', '<a href="/definitely-missing/">Missing</a></body>'));
   });
-  assert.match(output, /index\.html: broken internal link \/definitely-missing\//);
+  assert.match(output, /index\.html: internal link escapes configured base \/definitely-missing\//);
+});
+
+test('rejects root-relative links that bypass the configured base to an existing route', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="/kontakty/">Контакти</a></body>'));
+  });
+  assert.match(output, /index\.html: internal link escapes configured base \/kontakty\//);
+});
+
+test('rejects same-origin absolute links that bypass the configured base', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="https://example.test/kontakty/">Контакти</a></body>'));
+  });
+  assert.match(output, /index\.html: internal link escapes configured base https:\/\/example\.test\/kontakty\//);
 });
 
 test('rejects privacy pages that become indexable', () => {
