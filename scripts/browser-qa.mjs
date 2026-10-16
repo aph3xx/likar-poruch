@@ -6,6 +6,11 @@ const resolverRules=process.env.QA_HOST_RESOLVER_RULES;
 await fs.mkdir('artifacts/qa',{recursive:true});
 const browser=await chromium.launch({headless:true,args:resolverRules?[`--host-resolver-rules=${resolverRules}`]:[]});
 const viewports=[{name:'mobile-360',width:360,height:800},{name:'tablet-768',width:768,height:900},{name:'desktop-1440',width:1440,height:900}];
+const targetWidths=[320,360,390,640,768,1024,1280,1440];
+const standaloneTargetSelector=['a[href^="tel:"]','a[href^="sms:"]','a.text-link','.breadcrumbs a'].join(',');
+const findUndersizedTargets=(page)=>page.locator(standaloneTargetSelector).evaluateAll(elements=>elements
+ .map(element=>({text:(element.textContent||'').trim().replace(/\s+/g,' '),height:element.getBoundingClientRect().height}))
+ .filter(({height})=>height>0&&height<44));
 try{
  for(const viewport of viewports){
   const page=await browser.newPage({viewport});const errors=[];
@@ -44,7 +49,17 @@ try{
  }
  await consentPage.close();
  const page=await browser.newPage({viewport:{width:1280,height:800}});
- for(const route of ['/posluhy/','/pro-nas/','/kontakty/','/zapys/','/zhurnal/']){const response=await page.goto(`${base}${route}`,{waitUntil:'networkidle'});if(!response?.ok())throw new Error(`${route}: ${response?.status()}`);if(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth))throw new Error(`${route}: horizontal overflow`);}
+ const retainedRoutes=['/','/posluhy/','/pro-nas/','/kontakty/','/zapys/','/yak-tse-pratsiuie/','/privacy/','/zhurnal/','/zhurnal/yak-obraty-simeinoho-likaria/','/zhurnal/yak-pidhotuvatysia-do-konsultatsii/','/zhurnal/koly-vyklykaty-103/','/zhurnal/dokazova-medytsyna-prostymy-slovamy/'];
+ for(const width of targetWidths){
+  await page.setViewportSize({width,height:width<640?800:900});
+  for(const route of retainedRoutes){
+   const response=await page.goto(`${base}${route}`,{waitUntil:'networkidle'});
+   if(!response?.ok())throw new Error(`${width}px ${route}: ${response?.status()}`);
+   if(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth))throw new Error(`${width}px ${route}: horizontal overflow`);
+   const undersizedTargets=await findUndersizedTargets(page);
+   if(undersizedTargets.length)throw new Error(`${width}px ${route}: standalone targets below 44px: ${undersizedTargets.map(({text,height})=>`${text} (${height}px)`).join(', ')}`);
+  }
+ }
  await page.goto(`${base}/zapys/`,{waitUntil:'networkidle'});
  const booking=page.locator('[data-appointment-form]');
  if(!(await booking.isVisible()))throw new Error('booking form missing');
