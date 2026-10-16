@@ -6,46 +6,19 @@ media:
 
 content:
   - name: site
-    label: Налаштування сайту
+    label: Налаштування медичного центру
     type: file
     path: src/data/site.json
     format: json
     fields:
       - { name: name, label: Назва, type: string, required: true }
-      - { name: tagline, label: Короткий опис, type: text, required: true }
-      - { name: demoNotice, label: Позначка демонстраційного сервісу, type: text, required: true }
+      - { name: tagline, label: Гасло, type: text, required: true }
+      - { name: demoNotice, label: Опис практики, type: text, required: true }
+      - { name: address, label: Адреса, type: string, required: true }
+      - { name: phone, label: Телефон у міжнародному форматі, type: string, required: true }
+      - { name: phoneDisplay, label: Телефон для показу, type: string, required: true }
       - { name: emergencyNotice, label: Екстрене повідомлення, type: text, required: true }
       - { name: medicalDisclaimer, label: Медичне застереження, type: text, required: true }
-  - name: doctors
-    label: Лікарі
-    type: file
-    path: src/data/doctors.json
-    format: json
-    list: true
-    fields:
-      - { name: slug, label: URL slug, type: string, required: true }
-      - { name: name, label: Ім’я, type: string, required: true }
-      - { name: initials, label: Ініціали, type: string, required: true }
-      - { name: specialty, label: Спеціальність, type: string, required: true }
-      - { name: specialtySlug, label: Slug спеціальності, type: string, required: true }
-      - { name: city, label: Місто, type: string, required: true }
-      - { name: citySlug, label: Slug міста, type: string, required: true }
-      - { name: experience, label: Досвід, type: string }
-      - name: languages
-        label: Мови
-        type: string
-        list: true
-      - name: focus
-        label: Напрями роботи
-        type: string
-        list: true
-      - { name: format, label: Формат, type: string }
-      - { name: bio, label: Опис, type: text }
-      - name: accent
-        label: Колір аватара
-        type: select
-        options:
-          values: [blue, yellow, coral, mint, lilac, navy]
   - name: articles
     label: Статті
     type: file

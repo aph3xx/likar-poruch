@@ -1,7 +1,7 @@
 {
   "name": "Лікар Поруч",
   "short_name": "Лікар Поруч",
-  "description": "Український каталог лікарів",
+  "description": "Приватний медичний центр для дорослих і дітей",
   "lang": "uk",
   "start_url": "/likar-poruch/",
   "scope": "/likar-poruch/",

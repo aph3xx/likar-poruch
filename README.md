@@ -1,6 +1,6 @@
 # Лікар Поруч
 
-A Ukrainian-first, SEO-ready doctor discovery prototype built with Astro and managed through Pages CMS.
+Ukrainian-first website for a private medical practice serving adults and children. Built with Astro and managed through Pages CMS.
 
 ## Local development
 
@@ -9,35 +9,41 @@ npm install
 npm run dev
 ```
 
-Production checks:
+Production verification:
 
 ```bash
 npm run check
 npm test
+npm run qa:browser
 ```
 
-`npm test` builds the site and verifies every generated HTML page has one H1, Ukrainian language metadata, a title, description, canonical URL, and working internal links. With a preview server running on port 4321, `npm run qa:browser` checks the 360, 768, 1280, and 1440 pixel layouts, mobile navigation, filtering, the demo booking form, structured data, browser errors, and horizontal overflow.
+`npm test` builds the static site and verifies metadata, one H1 per page, Ukrainian language metadata, canonical URLs, and internal links. Browser QA checks 360, 768, 1280, and 1440 pixel layouts, mobile navigation, phone CTAs, MedicalClinic structured data, browser errors, stale directory language, and horizontal overflow.
 
 ## Content management
 
 1. Open [Pages CMS](https://pagescms.org/).
 2. Sign in with GitHub and select `aph3xx/likar-poruch`.
-3. Edit **Налаштування сайту**, **Лікарі**, or **Статті**.
+3. Edit **Налаштування медичного центру** or **Статті**.
 4. Save. Pages CMS commits the JSON content change to GitHub.
 5. GitHub Actions validates and deploys the new version.
 
-The CMS schema lives in `.pages.yml`. Site-wide text is in `src/data/site.json`, doctor content is in `src/data/doctors.json`, and journal content is in `src/data/articles.json`. Astro content collections in `src/content.config.ts` validate doctor and article records during every check and build.
+Site-wide details are stored in `src/data/site.json`; journal content is in `src/data/articles.json`. The CMS schema is defined in `.pages.yml`.
 
-## SEO implementation
+## Site structure
 
-- per-route titles, descriptions, canonicals, Open Graph, and Twitter metadata
-- `uk` language and hreflang
-- organization, website, physician/profile, medical page, article, item list, FAQ, and breadcrumb JSON-LD
-- XML sitemap and RSS feed
-- crawlable specialty, city, doctor, and article routes
-- robots.txt, manifest, security.txt, semantic headings, and internal linking
-- static HTML, one small local script per interactive surface, and an optimized local WebP hero
+- homepage focused on the medical practice and phone booking
+- services for family medicine, endocrinology, and on-site rapid diagnostics
+- about, contacts, privacy, and educational articles
+- clinic phone number and address available throughout the site
 
-## Important
+## SEO and accessibility
 
-This is a demonstration. Doctor names, experience, availability, and appointment forms are fictional and must not be presented as real medical listings without verification.
+- per-route titles, descriptions, canonical and social metadata
+- Ukrainian language and hreflang declarations
+- MedicalClinic, WebSite, FAQ, MedicalWebPage, Article, and breadcrumb JSON-LD
+- XML sitemap, RSS, robots.txt, manifest, and security.txt
+- semantic headings, keyboard navigation, visible focus states, and responsive static HTML
+
+## Medical notice
+
+Information on the site is educational and does not replace a consultation. For a life-threatening emergency in Ukraine, call 103 or 112.

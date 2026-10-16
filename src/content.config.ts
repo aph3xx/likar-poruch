@@ -7,24 +7,6 @@ const withSlugIds = (text: string) => {
   return entries.map((entry) => ({ id: entry.slug, ...entry }));
 };
 
-const doctors = defineCollection({
-  loader: file('src/data/doctors.json', { parser: withSlugIds }),
-  schema: z.object({
-    slug: z.string().min(1),
-    name: z.string().min(2),
-    initials: z.string().min(1),
-    specialty: z.string().min(2),
-    specialtySlug: z.string().min(1),
-    city: z.string().min(2),
-    citySlug: z.string().min(1),
-    experience: z.string().min(2),
-    languages: z.array(z.string()).min(1),
-    focus: z.array(z.string()).min(1),
-    format: z.string().min(2),
-    bio: z.string().min(20),
-    accent: z.enum(['blue', 'yellow', 'coral', 'mint', 'lilac', 'navy'])
-  })
-});
 
 const articles = defineCollection({
   loader: file('src/data/articles.json', { parser: withSlugIds }),
@@ -46,4 +28,4 @@ const articles = defineCollection({
   })
 });
 
-export const collections = { doctors, articles };
+export const collections = { articles };

@@ -1,56 +1,57 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import DoctorCard from '../components/DoctorCard.astro';
-import doctors from '../data/doctors.json';
+import site from '../data/site.json';
 import articles from '../data/articles.json';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const specialties = [
-  ['simeinyi-likar','Сімейний лікар','Профілактика та супровід'],['pediatr','Педіатр','Здоров’я дітей'],['kardioloh','Кардіолог','Серце та судини'],['dermatoloh','Дерматолог','Шкіра, волосся, нігті'],['hinekoloh','Гінеколог','Жіноче здоров’я'],['nevroloh','Невролог','Нервова система']
+const phoneHref = `tel:${site.phone}`;
+const services = [
+  { number: '01', title: 'Сімейний лікар', text: 'Консультації для дорослих і дітей, огляд, діагностика, лікування та тривалий супровід.', points: ['Хронічні стани', 'Е-рецепти та довідки', 'Профілактичні огляди'] },
+  { number: '02', title: 'Ендокринолог', text: 'Допомога при захворюваннях щитоподібної залози, діабеті, метаболічних і гормональних порушеннях.', points: ['Щитоподібна залоза', 'Цукровий діабет', 'Контроль лікування'] },
+  { number: '03', title: 'Швидка діагностика', text: 'Основні дослідження безпосередньо у медичному центрі, щоб швидше визначити наступні кроки.', points: ['ЕКГ із розшифруванням', 'Глюкоза та холестерин', 'Швидкі тести й отоскопія'] }
 ];
 const faq = [
-  ['Як перевіряються лікарі?', 'У цьому прототипі профілі є демонстраційними. У повному сервісі публікація має відбуватися лише після перевірки освіти, спеціалізації, місця практики та права на професійну діяльність за доступними офіційними джерелами.'],
-  ['Чи можна записатися на прийом?', 'Форма запису демонстраційна і не надсилає дані. Вона показує очікуваний сценарій майбутнього сервісу без обробки медичної інформації.'],
-  ['Чи замінює сайт консультацію?', 'Ні. Каталог допомагає знайти фахівця, а журнал дає загальну освітню інформацію. Діагноз і лікування визначаються під час консультації.'],
-  ['Що робити у невідкладному стані?', 'Не чекайте відповіді в чаті чи планового прийому. За загрози життю телефонуйте 103 або 112.']
+  ['Кого приймає медичний центр?', 'Ми надаємо медичну допомогу дорослим і дітям. Обсяг конкретної консультації узгоджується під час запису.'],
+  ['Як записатися на прийом?', `Зателефонуйте за номером ${site.phoneDisplay}. Адміністратор допоможе обрати консультацію та погодити час.`],
+  ['Які обстеження можна пройти на місці?', 'Доступні ЕКГ із розшифруванням, вимірювання тиску і пульсу, швидкі тести, визначення глюкози та холестерину, отоскопія, перевірка гостроти зору й антропометрія.'],
+  ['Що робити у невідкладному стані?', 'За загрози життю не чекайте планового прийому. Телефонуйте 103 або 112.']
 ];
 const schema = [
-  {'@context':'https://schema.org','@type':'Organization','name':'Лікар Поруч','url':`${base ? 'https://aph3xx.github.io'+base+'/' : ''}`,'description':'Український демонстраційний каталог лікарів та освітніх матеріалів про здоров’я.'},
-  {'@context':'https://schema.org','@type':'WebSite','name':'Лікар Поруч','url':`https://aph3xx.github.io${base}/`,'inLanguage':'uk-UA','potentialAction':{'@type':'SearchAction','target':`https://aph3xx.github.io${base}/likari/?q={search_term_string}`,'query-input':'required name=search_term_string'}},
+  {'@context':'https://schema.org','@type':'MedicalClinic','name':site.name,'url':`https://aph3xx.github.io${base}/`,'telephone':site.phone,'description':site.tagline,'address':{'@type':'PostalAddress','streetAddress':'вул. Хоральська, 1А','addressCountry':'UA'},'medicalSpecialty':['PrimaryCare','Endocrinologic']},
+  {'@context':'https://schema.org','@type':'WebSite','name':site.name,'url':`https://aph3xx.github.io${base}/`,'inLanguage':'uk-UA'},
   {'@context':'https://schema.org','@type':'FAQPage','mainEntity':faq.map(([name,text])=>({'@type':'Question','name':name,'acceptedAnswer':{'@type':'Answer','text':text}}))}
 ];
 ---
-<BaseLayout title="Лікар Поруч | Знайти лікаря в Україні" description="Знайдіть лікаря за спеціальністю та містом. Зрозумілі профілі, прозора методологія й корисні матеріали про здоров’я українською." schema={schema}>
-  <section class="hero">
+<BaseLayout title="Лікар Поруч | Сімейний лікар та ендокринолог" description="Приватний медичний центр для дорослих і дітей: сімейний лікар, ендокринолог та швидка діагностика на вул. Хоральській, 1А." schema={schema} image="/images/clinic-doctor.webp">
+  <section class="hero clinic-hero">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow">Український каталог лікарів</p>
-        <h1>Ваш лікар має бути <em>поруч.</em></h1>
-        <p class="lead">Шукайте фахівця за потребою, містом і форматом консультації. Без шуму, перебільшень і прихованих рейтингів.</p>
-        <form class="search-box" action={`${base}/likari/`} method="get">
-          <div class="search-field"><label for="specialty">Спеціальність</label><select id="specialty" name="specialty"><option value="">Будь-яка</option>{specialties.map(([slug,label])=><option value={slug}>{label}</option>)}</select></div>
-          <div class="search-field"><label for="city">Місто</label><select id="city" name="city"><option value="">Уся Україна</option><option value="kyiv">Київ</option><option value="lviv">Львів</option><option value="odesa">Одеса</option></select></div>
-          <button class="button" type="submit">Знайти</button>
-        </form>
-        <div class="micro-trust"><span>Профілі без платного ранжування</span><span>Зрозуміла методологія</span></div>
+        <p class="eyebrow">Медичний центр для всієї родини</p>
+        <h1>Здоров’я ближче. <em>Лікар поруч.</em></h1>
+        <p class="lead">Особиста медична допомога для дорослих і дітей: від першої консультації до діагностики та подальшого супроводу.</p>
+        <div class="clinic-actions"><a class="button" href={phoneHref}>Записатися: {site.phoneDisplay}</a><a class="button secondary" href={`${base}/posluhy/`}>Переглянути послуги</a></div>
+        <div class="micro-trust"><span>Без черг і очікування</span><span>Діагностика на місці</span></div>
       </div>
-      <div class="hero-photo"><img src={`${base}/images/doctor-hero.webp`} width="1600" height="1000" alt="Лікарка у білому халаті біля сучасної клініки" fetchpriority="high" /></div>
+      <div class="hero-photo clinic-photo"><img src={`${base}/images/clinic-doctor.webp`} width="475" height="720" alt="Лікарка медичного центру «Лікар Поруч»" fetchpriority="high" /></div>
     </div>
   </section>
-  <section class="section"><div class="container">
-    <div class="section-head"><div><p class="eyebrow">Почніть із потреби</p><h2>Оберіть напрям консультації</h2></div><a class="text-link" href={`${base}/likari/`}>Переглянути всіх →</a></div>
-    <div class="specialty-grid">{specialties.map(([slug,label,desc],i)=><a class="specialty-link" href={`${base}/spetsialnosti/${slug}/`}><span class="icon">{String(i+1).padStart(2,'0')}</span><strong>{label}</strong><span>{desc}</span></a>)}</div>
+
+  <section class="section" id="posluhy"><div class="container">
+    <div class="section-head"><div><p class="eyebrow">Допомога поруч</p><h2>Основні напрямки</h2></div><p class="lead">Зрозумілий маршрут пацієнта без зайвих переадресацій.</p></div>
+    <div class="clinic-services">{services.map((service)=><article class="clinic-service"><span>{service.number}</span><h3>{service.title}</h3><p>{service.text}</p><ul>{service.points.map((point)=><li>{point}</li>)}</ul></article>)}</div>
+    <div class="section-cta"><a class="button" href={`${base}/posluhy/`}>Усі послуги</a></div>
   </div></section>
-  <section class="section section-ice"><div class="container">
-    <div class="section-head"><div><p class="eyebrow">Демонстраційні профілі</p><h2>Лікарі для різних запитів</h2></div><p class="lead">Приклад того, як можуть виглядати чіткі профілі без непрозорих рейтингів.</p></div>
-    <div class="doctor-list">{doctors.slice(0,4).map((doctor)=><DoctorCard doctor={doctor} />)}</div>
-  </div></section>
+
   <section class="section section-ink"><div class="container trust-grid">
-    <div><p class="eyebrow">Довіра до процесу</p><h2>Не «топ лікарів», а зрозумілий вибір</h2><p class="lead">Майбутня методологія сервісу має пояснювати, що перевірено, коли оновлено дані та чому профіль показано у видачі.</p><a class="button yellow" href={`${base}/yak-tse-pratsiuie/`}>Як це працює</a></div>
-    <div class="method-list"><div class="method-item"><div><h3>Перевірка фактів</h3><p>Освіта, спеціалізація та місце практики з позначенням джерела.</p></div></div><div class="method-item"><div><h3>Без куплених позицій</h3><p>Платне просування не маскується під органічний результат.</p></div></div><div class="method-item"><div><h3>Відгуки після візиту</h3><p>Публікуються лише після підтвердженої взаємодії та модерації.</p></div></div></div>
+    <div><p class="eyebrow">Турбота без зайвого стресу</p><h2>Один медичний центр для щоденних потреб</h2><p class="lead">Індивідуальний підхід, зручний запис і сучасні методи обстеження у спокійній локальній практиці.</p><a class="button yellow" href={phoneHref}>Зателефонувати</a></div>
+    <div class="method-list"><div class="method-item"><div><h3>Для дорослих і дітей</h3><p>Сімейна медицина з увагою до віку, історії здоров’я та потреб родини.</p></div></div><div class="method-item"><div><h3>Діагностика на місці</h3><p>Базові вимірювання, швидкі тести та ЕКГ без окремої поїздки до іншого закладу.</p></div></div><div class="method-item"><div><h3>Зручний запис</h3><p>Узгодьте час телефоном і приходьте на консультацію без живої черги.</p></div></div></div>
   </div></section>
+
+  <section class="section contact-band"><div class="container contact-band-grid"><div><p class="eyebrow">Ми поруч</p><h2>{site.address}</h2><p class="lead">Зателефонуйте, щоб уточнити послугу та домовитися про зручний час прийому.</p></div><div class="contact-number"><span>Запис за телефоном</span><a href={phoneHref}>{site.phoneDisplay}</a><a class="text-link" href={`${base}/kontakty/`}>Контакти та маршрут →</a></div></div></section>
+
   <section class="section"><div class="container">
-    <div class="section-head"><div><p class="eyebrow">Журнал здоров’я</p><h2>Менше тривоги. Більше ясності.</h2></div><a class="text-link" href={`${base}/zhurnal/`}>Усі матеріали →</a></div>
+    <div class="section-head"><div><p class="eyebrow">Корисно знати</p><h2>Матеріали про здоров’я</h2></div><a class="text-link" href={`${base}/zhurnal/`}>Усі матеріали →</a></div>
     <div class="journal-grid">{articles.slice(0,3).map((article)=><a class="article-card" href={`${base}/zhurnal/${article.slug}/`}><span class="article-card-meta">{article.category} · {article.readingTime}</span><div><h3>{article.title}</h3><p>{article.description}</p></div><span class="text-link">Читати →</span></a>)}</div>
   </div></section>
-  <section class="section section-ice"><div class="container narrow"><p class="eyebrow">Питання та відповіді</p><h2>Важливе перед пошуком</h2><div class="faq-list">{faq.map(([question,answer])=><details><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section>
+
+  <section class="section section-ice"><div class="container narrow"><p class="eyebrow">Питання та відповіді</p><h2>Перед візитом</h2><div class="faq-list">{faq.map(([question,answer])=><details><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section>
 </BaseLayout>
