@@ -8,5 +8,5 @@
   "display": "standalone",
   "background_color": "#edf5ff",
   "theme_color": "#10233b",
-  "icons": [{"src":"/likar-poruch/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+  "icons": [{"src":"/likar-poruch/brand/mark.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
 }

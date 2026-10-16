@@ -66,7 +66,7 @@ const href = (value: string) => `${base}${value}`;
     <header class="site-header">
       <div class="header-inner">
         <a class="brand" href={href('/')} aria-label={`${siteSettings.name}, головна`}>
-          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <img class="brand-logo" src={href('/brand/mark.svg')} alt="" width="34" height="38" />
           <span>{siteSettings.name}</span>
         </a>
         <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span><span class="sr-only">Відкрити меню</span></button>
@@ -80,7 +80,7 @@ const href = (value: string) => `${base}${value}`;
     <footer class="site-footer">
       <div class="footer-grid">
         <div>
-          <a class="brand brand-light" href={href('/')}><span class="brand-mark" aria-hidden="true"><span></span></span><span>{siteSettings.name}</span></a>
+          <a class="brand brand-light" href={href('/')}><img class="brand-logo" src={href('/brand/mark-inverse.svg')} alt="" width="34" height="38" /><span>{siteSettings.name}</span></a>
           <p class="footer-lead">{siteSettings.tagline}</p>
           <p class="demo-note">{siteSettings.demoNotice}</p>
         </div>
