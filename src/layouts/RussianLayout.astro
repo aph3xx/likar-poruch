@@ -18,16 +18,14 @@ const {
   description,
   path = '/ru/',
   ukPath = '/',
-  image = '/images/clinic-doctor.webp',
+  image = '/brand/logo-horizontal.svg',
   type = 'website',
-  noindex = false
+  noindex = false,
 } = Astro.props;
-
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const siteOrigin = Astro.site?.origin || 'https://aph3xx.github.io';
 const normalizePath = (value: string) => value === '/' ? '/' : `/${value.replace(/^\/+|\/+$/g, '')}/`;
 const canonical = `${siteOrigin}${base}${normalizePath(path)}`;
-const russianUrl = canonical;
 const ukrainianUrl = `${siteOrigin}${base}${normalizePath(ukPath)}`;
 const imageUrl = image.startsWith('http') ? image : `${siteOrigin}${base}${image}`;
 const href = (value: string) => `${base}${normalizePath(value)}`;
@@ -38,7 +36,7 @@ const nav = [
   { href: '/ru/', label: 'Главная' },
   { href: '/ru/uslugi/', label: 'Услуги' },
   { href: '/ru/kontakty/', label: 'Контакты' },
-  { href: '/ru/zapis/', label: 'Запись' }
+  { href: '/ru/zapis/', label: 'Запись' },
 ];
 const clinicSchema = {
   '@context': 'https://schema.org',
@@ -53,14 +51,9 @@ const clinicSchema = {
     '@type': 'PostalAddress',
     streetAddress: 'ул. Хоральская, 1А',
     addressLocality: 'Киев',
-    addressCountry: 'UA'
+    addressCountry: 'UA',
   },
   medicalSpecialty: ['PrimaryCare', 'Endocrinologic'],
-  availableService: [
-    { '@type': 'MedicalProcedure', name: 'Консультация семейного врача' },
-    { '@type': 'MedicalProcedure', name: 'Консультация эндокринолога' },
-    { '@type': 'MedicalProcedure', name: 'Быстрая диагностика' }
-  ]
 };
 ---
 <!doctype html>
@@ -71,9 +64,9 @@ const clinicSchema = {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'} />
-    <meta name="theme-color" content="#0b2d69" />
+    <meta name="theme-color" content="#0B2C6F" />
     <link rel="canonical" href={canonical} />
-    <link rel="alternate" hreflang="ru" href={russianUrl} />
+    <link rel="alternate" hreflang="ru" href={canonical} />
     <link rel="alternate" hreflang="uk" href={ukrainianUrl} />
     <link rel="alternate" hreflang="x-default" href={ukrainianUrl} />
     <meta property="og:locale" content="ru_RU" />
@@ -94,63 +87,82 @@ const clinicSchema = {
     <script type="application/ld+json" set:html={JSON.stringify(clinicSchema)} />
   </head>
   <body>
-    <a class="skip-link" href="#content">Перейти к содержанию</a>
+    <a class="skip-link" href="#main">Перейти к содержанию</a>
     <header class="site-header">
       <div class="header-inner">
         <a class="brand" href={href('/ru/')} aria-label="Лікар Поруч, главная страница">
           <img class="brand-logo" src={`${base}/brand/mark.svg`} alt="" width="34" height="38" />
           <span>Лікар Поруч</span>
         </a>
-        <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav">
-          <span></span><span></span><span></span><span class="sr-only">Открыть меню</span>
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+          <span aria-hidden="true" class="menu-icon"><i></i><i></i><i></i></span>
+          <span class="menu-label">Меню</span>
         </button>
-        <nav id="site-nav" class="site-nav" aria-label="Основная навигация">
-          {nav.map((item) => <a href={href(item.href)}>{item.label}</a>)}
-          <a href={`${base}${normalizePath(ukPath)}`} lang="uk" hreflang="uk">Українська</a>
+        <nav id="site-nav" class="site-nav" aria-label="Основная навигация" data-nav-menu>
+          <div class="nav-panel">
+            <div class="nav-panel-head"><strong>Навигация</strong><button class="menu-close" type="button" aria-label="Закрыть меню">×</button></div>
+            {nav.map((item) => <a href={href(item.href)}>{item.label}</a>)}
+            <a href={`${base}${normalizePath(ukPath)}`} lang="uk" hreflang="uk">Українська</a>
+            <a class="nav-book" href={href('/ru/zapis/')}>Записаться</a>
+          </div>
         </nav>
         <a class="header-cta" href={href('/ru/zapis/')}>Записаться</a>
       </div>
     </header>
-    <main id="content"><slot /></main>
+
+    <main id="main"><slot /></main>
+
     <footer class="site-footer">
       <div class="footer-grid">
         <div>
-          <a class="brand brand-light" href={href('/ru/')}>
-            <img class="brand-logo" src={`${base}/brand/mark-inverse.svg`} alt="" width="34" height="38" />
-            <span>Лікар Поруч</span>
-          </a>
+          <a class="brand brand-light" href={href('/ru/')}><img class="brand-logo" src={`${base}/brand/mark-inverse.svg`} alt="" width="34" height="38" /><span>Лікар Поруч</span></a>
           <p class="footer-lead">Частный медицинский центр для взрослых и детей в Киеве.</p>
-          <p class="demo-note">Прямая запись в медицинский центр — не агрегатор и не каталог врачей.</p>
+          <p>Прямая запись в медицинский центр, не агрегатор и не каталог врачей.</p>
         </div>
-        <div>
-          <h2>Медицинский центр</h2>
-          <a href={href('/ru/uslugi/')}>Услуги</a>
-          <a href={href('/ru/kontakty/')}>Контакты</a>
-          <a href={href('/ru/zapis/')}>Запись</a>
-        </div>
-        <div>
-          <h2>Связь</h2>
-          <a href={`tel:${phone}`}>{phoneDisplay}</a>
-          <p>{address}</p>
-          <a href={`${base}${normalizePath(ukPath)}`} lang="uk" hreflang="uk">Українська версія цієї сторінки</a>
-        </div>
-        <div>
-          <h2>Важно</h2>
-          <p>При угрозе жизни звоните 103 или 112.</p>
-          <p>Информация на сайте не заменяет консультацию врача.</p>
-        </div>
+        <div><h2>Медицинский центр</h2><a href={href('/ru/uslugi/')}>Услуги</a><a href={href('/ru/kontakty/')}>Контакты</a><a href={href('/ru/zapis/')}>Запись</a></div>
+        <div><h2>Связь</h2><a href={`tel:${phone}`}>{phoneDisplay}</a><p>{address}</p><a href={`${base}${normalizePath(ukPath)}`} lang="uk" hreflang="uk">Українська версія</a></div>
+        <div><h2>Важно</h2><p>При угрозе жизни звоните 103 или 112.</p><p>Информация на сайте не заменяет консультацию врача.</p></div>
       </div>
       <div class="footer-bottom"><span>© 2026 Лікар Поруч</span><span>Частный медицинский центр в Киеве</span></div>
     </footer>
+
+    <div class="mobile-action-bar" aria-label="Быстрые действия"><a href={`tel:${phone}`}>Позвонить</a><a class="mobile-book" href={href('/ru/zapis/')}>Записаться</a></div>
     <PostHogAnalytics />
     <script is:inline>
-      const toggle = document.querySelector('.menu-toggle');
-      const nav = document.querySelector('#site-nav');
-      toggle?.addEventListener('click', () => {
-        const open = toggle.getAttribute('aria-expanded') === 'true';
-        toggle.setAttribute('aria-expanded', String(!open));
-        nav?.classList.toggle('is-open', !open);
-      });
+      (() => {
+        const toggle = document.querySelector('.menu-toggle');
+        const close = document.querySelector('.menu-close');
+        const nav = document.querySelector('[data-nav-menu]');
+        if (!(toggle instanceof HTMLButtonElement) || !(nav instanceof HTMLElement)) return;
+        let lastFocused = null;
+        const selector = 'a[href], button:not([disabled])';
+        const setOpen = (open, restoreFocus = true) => {
+          toggle.setAttribute('aria-expanded', String(open));
+          nav.classList.toggle('is-open', open);
+          document.body.classList.toggle('menu-open', open);
+          if (open) { lastFocused = document.activeElement; requestAnimationFrame(() => nav.querySelector(selector)?.focus()); }
+          else if (restoreFocus && lastFocused instanceof HTMLElement) lastFocused.focus();
+          if (!open) lastFocused = null;
+        };
+        toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+        close?.addEventListener('click', () => setOpen(false));
+        nav.addEventListener('click', (event) => { if (event.target === nav || event.target instanceof HTMLAnchorElement) setOpen(false); });
+        document.addEventListener('keydown', (event) => {
+          if (!nav.classList.contains('is-open')) return;
+          if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
+          if (event.key !== 'Tab') return;
+          const focusable = Array.from(nav.querySelectorAll(selector));
+          const first = focusable[0]; const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        });
+        const desktopMedia = window.matchMedia('(min-width: 1024px)');
+        const resetForDesktop = (event) => {
+          if (event.matches) setOpen(false, false);
+        };
+        desktopMedia.addEventListener('change', resetForDesktop);
+        if (desktopMedia.matches) setOpen(false, false);
+      })();
     </script>
   </body>
 </html>

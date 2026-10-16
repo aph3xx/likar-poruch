@@ -30,7 +30,7 @@ import AppointmentForm from '../components/AppointmentForm.astro';
       <aside class="booking-aside" aria-labelledby="booking-aside-title">
         <div>
           <p class="aside-kicker">Що далі</p>
-          <h2 id="booking-aside-title">Запит — ще не підтверджений запис</h2>
+          <h2 id="booking-aside-title">Запит ще не є підтвердженим записом</h2>
           <ol>
             <li>
               <span>1</span>
@@ -76,7 +76,7 @@ import AppointmentForm from '../components/AppointmentForm.astro';
     padding: clamp(3.5rem, 7vw, 7rem) 0;
     background:
       radial-gradient(circle at 100% 0%, rgba(217, 243, 232, 0.8), transparent 32rem),
-      var(--mist);
+      var(--page);
   }
 
   .booking-grid {
@@ -107,7 +107,7 @@ import AppointmentForm from '../components/AppointmentForm.astro';
 
   .aside-kicker {
     margin-bottom: 0.65rem;
-    color: var(--blue-dark);
+    color: var(--action-hover);
     font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -116,7 +116,8 @@ import AppointmentForm from '../components/AppointmentForm.astro';
 
   .booking-aside h2 {
     margin-bottom: 1.5rem;
-    font-size: clamp(1.55rem, 3vw, 2.25rem);
+    font-size: clamp(1.45rem, 2vw, 1.9rem);
+    overflow-wrap: anywhere;
   }
 
   .booking-aside ol {
@@ -140,8 +141,8 @@ import AppointmentForm from '../components/AppointmentForm.astro';
     height: 2rem;
     place-items: center;
     border-radius: 50%;
-    color: var(--blue-dark);
-    background: var(--ice);
+    color: var(--action-hover);
+    background: var(--pale);
     font-size: 0.82rem;
     font-weight: 800;
   }
@@ -163,7 +164,7 @@ import AppointmentForm from '../components/AppointmentForm.astro';
     margin-bottom: 0.4rem;
   }
 
-  @media (max-width: 920px) {
+  @media (max-width: 1023px) {
     .booking-grid {
       grid-template-columns: 1fr;
     }
