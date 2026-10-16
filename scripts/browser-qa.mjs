@@ -350,6 +350,26 @@ try {
     );
   if (!schemas.some((x) => x["@type"] === "MedicalClinic"))
     throw new Error("MedicalClinic JSON-LD missing");
+  const homepageClinic = schemas.find((x) => x["@type"] === "MedicalClinic");
+  const homepageText = (await page.locator("body").innerText()).toLowerCase();
+  for (const stale of ["sms", "адміністратор зв’яжеться", "адміністратор погодить"])
+    if (homepageText.includes(stale))
+      throw new Error(`booking contract contains stale claim: ${stale}`);
+  if (!homepageText.includes("локальн") || !homepageText.includes("зателефонуйте до клініки"))
+    throw new Error("local-draft phone handoff copy missing");
+  await page.goto(`${base}/kontakty/`, { waitUntil: "networkidle" });
+  const contactsClinic = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
+    nodes.flatMap((n) => {
+      const x = JSON.parse(n.textContent || "{}");
+      return Array.isArray(x) ? x : [x];
+    }).find((x) => x["@type"] === "MedicalClinic"),
+  );
+  if (!homepageClinic?.["@id"] || homepageClinic["@id"] !== contactsClinic?.["@id"])
+    throw new Error("homepage and contacts MedicalClinic identity mismatch");
+  for (const field of ["name", "url", "telephone"])
+    if (homepageClinic[field] !== contactsClinic[field])
+      throw new Error(`MedicalClinic ${field} mismatch`);
+  await page.goto(`${base}/`, { waitUntil: "networkidle" });
   if (schemas.some((x) => ["ItemList", "ProfilePage"].includes(x["@type"])))
     throw new Error("stale aggregator schema found");
   await page.close();

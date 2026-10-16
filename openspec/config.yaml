@@ -3,8 +3,8 @@ schema: spec-driven
 context: |
   Лікар Поруч is a Ukrainian-first private medical center website, not a directory, marketplace, or aggregator.
   The site is an Astro static build deployed privately at https://sur.kyiv.ua/likar-poruch/ and served from /home/sgdt1a/.local/share/likar-poruch-site. GitHub is the source of record, not the production host.
-  Ukrainian is the primary interface language. Russian routes exist for localized search visibility in Ukraine and must use reciprocal hreflang links.
-  Appointment requests currently validate in the browser and open a prefilled SMS. The site must not claim that a request is a confirmed appointment.
+  Ukrainian is the only interface language and indexed route set. Retired Russian routes are intentionally absent and must not be restored without an explicit policy change.
+  Appointment requests validate in the browser and are saved only as a local draft; the site does not send the request. Users must call the clinic to pass on the request, and the site must not claim that a request is a confirmed appointment.
   Never send names, phone numbers, symptoms, diagnoses, or other patient data to PostHog or any analytics provider.
   Routine content is edited through Pages CMS using .pages.yml and JSON files under src/data/.
   Emergency information must direct users to 103 or 112 and must not imply that planned care replaces emergency help.
@@ -15,7 +15,7 @@ rules:
     - State patient-data and privacy implications explicitly.
     - State what is out of scope and identify any external credentials or services required.
   specs:
-    - Include Ukrainian and Russian localization acceptance criteria when a user-facing route or metadata changes.
+    - Include Ukrainian-only language, route, and metadata acceptance criteria when a user-facing route or metadata changes.
     - Include the private SUR /likar-poruch/ base-path and canonical-origin behavior in relevant scenarios.
   design:
     - Prefer simple static architecture and official integrations over adding a backend.
