@@ -65,7 +65,7 @@ If any item is missing, report the task as incomplete or blocked. Never say “d
 
 ## Contact data and redaction
 
-- The approved clinic phone must remain a real dialable E.164 value in source and runtime `tel:` and `sms:` targets.
+- The approved clinic phone must remain a real dialable E.164 value in source and runtime `tel:` targets. Appointment data is local-only; do not add SMS or server-submission claims without an explicit product decision.
 - Hermes may redact phone digits as asterisks in displayed tool output. Never infer source corruption from rendered output.
 - Validate phone data programmatically using shape and exact equality without printing the raw number. Check that it is 13 characters, begins with `+`, contains digits after the plus, and has no asterisks.
 
