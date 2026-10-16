@@ -1,0 +1,66 @@
+name: Auto PR and merge
+
+on:
+  push:
+    branches:
+      - 'task/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  open-and-queue:
+    if: github.repository == 'aph3xx/likar-poruch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or reuse the pull request and enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          title="$(printf '%s\n' "$COMMIT_MESSAGE" | sed -n '1p')"
+          if [[ -z "$title" || "$title" == Merge\ * ]]; then
+            title="chore: integrate ${HEAD_BRANCH}"
+          fi
+
+          pr_url="$(gh pr list \
+            --repo "$REPOSITORY" \
+            --head "$HEAD_BRANCH" \
+            --base main \
+            --state open \
+            --json url,isCrossRepository \
+            --jq 'map(select(.isCrossRepository == false)) | .[0].url // empty')"
+
+          if [[ -z "$pr_url" ]]; then
+            body_file="$RUNNER_TEMP/auto-pr-body.md"
+            cat > "$body_file" <<EOF
+          ## Automated task pull request
+
+          This pull request was opened from the Hermes task branch \`$HEAD_BRANCH\`.
+
+          It will be squash-merged automatically only after the required \`build\` check passes and the branch is up to date with \`main\`.
+
+          Automation run: $RUN_URL
+          EOF
+
+            pr_url="$(gh pr create \
+              --repo "$REPOSITORY" \
+              --base main \
+              --head "$HEAD_BRANCH" \
+              --title "$title" \
+              --body-file "$body_file")"
+          fi
+
+          gh pr merge "$pr_url" --auto --squash --delete-branch
+          printf 'Auto-merge queued for %s\n' "$pr_url"
