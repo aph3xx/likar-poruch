@@ -49,7 +49,9 @@ h1, h2 {
   line-height: 1.08;
   letter-spacing: -0.035em;
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
+
 h1 { margin-bottom: 24px; font-size: clamp(2.25rem, 5vw, 4.25rem); }
 h2 { margin-bottom: 24px; font-size: clamp(1.75rem, 3vw, 2.5rem); }
 h3 { margin-bottom: 12px; color: var(--navy-deep); font-size: clamp(1.25rem, 2vw, 1.5rem); line-height: 1.22; }
@@ -265,7 +267,7 @@ input[aria-invalid='true'], select[aria-invalid='true'] { border-color: var(--da
 .content-copy h3 { margin-top: 32px; }
 .content-copy li { margin-bottom: 9px; }
 .article-header { max-width: 900px; }
-.article-header h1 { font-size: clamp(2.5rem, 6vw, 5.2rem); }
+.article-header h1 { font-size: clamp(2.25rem, 6vw, 5.2rem); }
 .article-byline { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: 0.88rem; }
 .article-intro { padding-left: 22px; border-left: 4px solid var(--action); color: var(--navy-deep); font-size: 1.25rem; line-height: 1.55; }
 .callout { margin-block: 38px; padding: 22px; border-left: 4px solid var(--action); background: var(--pale); }

@@ -136,12 +136,13 @@ const clinicSchema = {
         if (!(toggle instanceof HTMLButtonElement) || !(nav instanceof HTMLElement)) return;
         let lastFocused = null;
         const selector = 'a[href], button:not([disabled])';
-        const setOpen = (open) => {
+        const setOpen = (open, restoreFocus = true) => {
           toggle.setAttribute('aria-expanded', String(open));
           nav.classList.toggle('is-open', open);
           document.body.classList.toggle('menu-open', open);
           if (open) { lastFocused = document.activeElement; requestAnimationFrame(() => nav.querySelector(selector)?.focus()); }
-          else if (lastFocused instanceof HTMLElement) lastFocused.focus();
+          else if (restoreFocus && lastFocused instanceof HTMLElement) lastFocused.focus();
+          if (!open) lastFocused = null;
         };
         toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
         close?.addEventListener('click', () => setOpen(false));
@@ -155,6 +156,12 @@ const clinicSchema = {
           if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
           else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         });
+        const desktopMedia = window.matchMedia('(min-width: 1024px)');
+        const resetForDesktop = (event) => {
+          if (event.matches) setOpen(false, false);
+        };
+        desktopMedia.addEventListener('change', resetForDesktop);
+        if (desktopMedia.matches) setOpen(false, false);
       })();
     </script>
   </body>

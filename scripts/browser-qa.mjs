@@ -124,10 +124,23 @@ try {
   }
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  for (const route of ['/posluhy/', '/pro-nas/', '/kontakty/', '/zapys/', '/zhurnal/', '/ru/', '/ru/uslugi/', '/ru/kontakty/', '/ru/zapis/']) {
-    const response = await page.goto(`${base}${route}`, { waitUntil: 'networkidle' });
-    assert(response?.ok(), `${route}: ${response?.status()}`);
-    assert(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${route}: horizontal overflow`);
+  const retainedRoutes = [
+    '/posluhy/', '/pro-nas/', '/kontakty/', '/zapys/', '/privacy/', '/zhurnal/',
+    '/zhurnal/yak-obraty-simeinoho-likaria/', '/zhurnal/yak-pidhotuvatysia-do-konsultatsii/',
+    '/zhurnal/koly-vyklykaty-103/', '/zhurnal/dokazova-medytsyna-prostymy-slovamy/',
+    '/ru/', '/ru/uslugi/', '/ru/kontakty/', '/ru/zapis/',
+  ];
+  for (const width of [320, 360, 390, 640, 768, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: width < 640 ? 800 : 900 });
+    for (const route of retainedRoutes) {
+      const response = await page.goto(`${base}${route}`, { waitUntil: 'domcontentloaded' });
+      assert(response?.ok(), `${width}px ${route}: ${response?.status()}`);
+      const geometry = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
+      assert(geometry.scrollWidth <= geometry.clientWidth, `${width}px ${route}: horizontal overflow ${geometry.scrollWidth}/${geometry.clientWidth}`);
+    }
   }
 
   await page.goto(`${base}/posluhy/`, { waitUntil: 'networkidle' });
@@ -234,11 +247,25 @@ try {
   const ruMenu = page.locator('.menu-toggle');
   await ruMenu.click();
   assert(await page.locator('#site-nav').isVisible(), 'Russian mobile menu failed to open');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert((await ruMenu.getAttribute('aria-expanded')) === 'false', 'Russian menu aria-expanded stayed true at desktop breakpoint');
+  assert(!(await page.locator('body').evaluate((element) => element.classList.contains('menu-open'))), 'Russian body stayed locked at desktop breakpoint');
+  assert(!(await page.locator('#site-nav').evaluate((element) => element.classList.contains('is-open'))), 'Russian mobile nav state stayed open at desktop breakpoint');
+  await page.setViewportSize({ width: 390, height: 800 });
+  await ruMenu.click();
   await page.keyboard.press('Escape');
   assert(!(await page.locator('#site-nav').isVisible()), 'Russian mobile menu failed to close on Escape');
   assert(await ruMenu.evaluate((element) => element === document.activeElement), 'Russian menu focus was not restored');
 
+  await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+  await page.setViewportSize({ width: 390, height: 800 });
+  const ukMenu = page.locator('.menu-toggle');
+  await ukMenu.click();
   await page.setViewportSize({ width: 1280, height: 800 });
+  assert((await ukMenu.getAttribute('aria-expanded')) === 'false', 'Ukrainian menu aria-expanded stayed true at desktop breakpoint');
+  assert(!(await page.locator('body').evaluate((element) => element.classList.contains('menu-open'))), 'Ukrainian body stayed locked at desktop breakpoint');
+  assert(!(await page.locator('#site-nav').evaluate((element) => element.classList.contains('is-open'))), 'Ukrainian mobile nav state stayed open at desktop breakpoint');
+
   await page.goto(`${base}/`, { waitUntil: 'networkidle' });
   const schemas = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
     nodes.flatMap((node) => {
