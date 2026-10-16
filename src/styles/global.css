@@ -138,6 +138,11 @@ p { color: var(--body); }
 .hero-practice dt { color: #b9d8ff; font-size: 0.82rem; font-weight: 800; text-transform: uppercase; }
 .hero-practice dd { margin: 0; font-weight: 700; }
 .hero-practice a { color: var(--white); }
+.hero-practice a, .service-card > a, .text-link, .visit-phone, .form-actions a, .breadcrumbs a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
 
 .services-section { background: var(--page); }
 .service-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -208,7 +213,7 @@ input[aria-invalid='true'], select[aria-invalid='true'] { border-color: var(--da
 .field-error { min-height: 1.2em; color: var(--danger); font-weight: 700; }
 .consent-field { display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 10px; }
 .consent-field input { width: 22px; min-height: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--action); }
-.consent-field label { color: var(--body); font-size: 0.92rem; }
+.consent-field label { display: flex; min-height: 44px; align-items: center; color: var(--body); font-size: 0.92rem; }
 .consent-field .field-error { grid-column: 2; }
 .error-summary { padding: 14px 16px; border: 2px solid var(--danger); border-radius: var(--radius-input); background: #fff2f0; }
 .error-summary strong { color: var(--navy-deep); }
