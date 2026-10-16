@@ -6,5 +6,5 @@ export default defineConfig({
   base: '/likar-poruch',
   trailingSlash: 'always',
   output: 'static',
-  integrations: [sitemap({ filter: (page) => !page.endsWith('/404/') })]
+  integrations: [sitemap({ filter: (page) => !page.endsWith('/404/') && !page.endsWith('/privacy/') })]
 });

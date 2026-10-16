@@ -8,15 +8,12 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "npm run build && node scripts/validate-build.mjs",
-    "qa:browser": "node scripts/browser-qa.mjs",
-    "deploy:sur": "bash scripts/deploy-sur.sh"
+    "test": "npm run build && node scripts/validate-build.mjs && node scripts/validate-consent.mjs && node --test scripts/validate-build.test.mjs",
+    "qa:browser": "node scripts/browser-qa.mjs"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.4",
-    "@fontsource-variable/manrope": "^5.3.0",
-    "@fontsource-variable/unbounded": "^5.3.0",
     "astro": "^7.4.0",
     "posthog-js": "^1.438.12"
   },

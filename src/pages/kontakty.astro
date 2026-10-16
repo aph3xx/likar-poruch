@@ -3,7 +3,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import site from '../data/site.json';
 const mapUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${site.address}, Київ`)}`;
-const schema={'@context':['https://','schema.org'].join(''),'@type':'MedicalClinic','name':site.name,'telephone':site.phone,'address':{'@type':'PostalAddress','streetAddress':'вул. Хоральська, 1А','addressLocality':'Київ','addressCountry':'UA'}};
+const siteOrigin = Astro.site?.origin || 'https://aph3xx.github.io';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const schema={'@context':'https://schema.org','@type':'MedicalClinic','@id':`${siteOrigin}${base}/#medical-center`,'name':site.name,'url':`${siteOrigin}${base}/`,'telephone':site.phone,'address':{'@type':'PostalAddress','streetAddress':site.address,'addressLocality':'Київ','addressCountry':'UA'}};
 ---
 <BaseLayout title="Контакти та запис | Лікар Поруч" description="Контакти медичного центру Лікар Поруч. Адреса: вул. Хоральська, 1А. Запис телефоном 093 108 00 95." path="kontakty" schema={schema}>
 <section class="page-hero"><div class="container"><Breadcrumbs items={[{label:'Головна',href:'/'},{label:'Контакти'}]} /><p class="eyebrow">Контакти</p><h1>Домовтеся про зручний час прийому</h1><p class="lead">Перед візитом зателефонуйте, щоб уточнити послугу, доступний час і підготовку до обстеження.</p></div></section>

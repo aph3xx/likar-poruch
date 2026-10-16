@@ -2,201 +2,56 @@
 import '../styles/global.css';
 import siteSettings from '../data/site.json';
 import PostHogAnalytics from '../components/PostHogAnalytics.astro';
-
-interface Props {
-  title: string;
-  description: string;
-  path?: string;
-  image?: string;
-  type?: 'website' | 'article' | 'profile';
-  noindex?: boolean;
-  schema?: Record<string, unknown> | Record<string, unknown>[];
-  ruPath?: string;
-}
-
-const {
-  title,
-  description,
-  path = '/',
-  image = '/brand/logo-horizontal.svg',
-  type = 'website',
-  noindex = false,
-  schema,
-  ruPath,
-} = Astro.props;
+import CookieConsent from '../components/CookieConsent.astro';
+interface Props { title:string; description:string; path?:string; image?:string; type?:'website'|'article'|'profile'; noindex?:boolean; schema?:Record<string,unknown>|Record<string,unknown>[]; }
+const { title, description, path='/', image='/images/clinic-doctor.webp', type='website', noindex=false, schema } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const siteOrigin = Astro.site?.origin || 'https://aph3xx.github.io';
 const normalizedPath = path === '/' ? '/' : `/${path.replace(/^\/+|\/+$/g, '')}/`;
 const canonical = `${siteOrigin}${base}${normalizedPath}`;
-const defaultRuPaths: Record<string, string> = {
-  '/': '/ru/',
-  '/posluhy/': '/ru/uslugi/',
-  '/kontakty/': '/ru/kontakty/',
-  '/zapys/': '/ru/zapis/',
-};
-const resolvedRuPath = ruPath || defaultRuPaths[normalizedPath];
-const russianUrl = resolvedRuPath ? `${siteOrigin}${base}${resolvedRuPath}` : undefined;
 const imageUrl = image.startsWith('http') ? image : `${siteOrigin}${base}${image}`;
-const home = `${base}/`;
 const nav = [
-  { href: `${home}#posluhy`, label: 'Послуги' },
-  { href: `${home}#likari`, label: 'Лікарі' },
-  { href: `${home}#diagnostyka`, label: 'Діагностика' },
-  { href: `${home}#pro-tsentr`, label: 'Про центр' },
-  { href: `${home}#kontakty`, label: 'Контакти' },
+  { href:'/posluhy/', label:'Послуги' },
+  { href:'/pro-nas/', label:'Про центр' },
+  { href:'/zhurnal/', label:'Матеріали' },
+  { href:'/kontakty/', label:'Контакти' },
+  { href:'/zapys/', label:'Запис' }
 ];
-const href = (value: string) => `${base}${value}`;
+const href = (value:string) => `${base}${value}`;
 ---
 <!doctype html>
 <html lang="uk">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
-    <link rel="alternate" hreflang="uk" href={canonical} />
-    {russianUrl && <link rel="alternate" hreflang="ru" href={russianUrl} />}
-    <link rel="alternate" hreflang="x-default" href={canonical} />
-    <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'} />
-    <meta name="theme-color" content="#0B2C6F" />
-    <meta property="og:locale" content="uk_UA" />
-    {russianUrl && <meta property="og:locale:alternate" content="ru_UA" />}
-    <meta property="og:type" content={type} />
-    <meta property="og:site_name" content={siteSettings.name} />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={imageUrl} />
-    <meta property="og:image:alt" content="Медичний центр «Лікар Поруч»" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={imageUrl} />
-    <link rel="icon" href={href('/favicon.svg')} type="image/svg+xml" />
-    <link rel="manifest" href={href('/manifest.webmanifest')} />
-    <link rel="alternate" type="application/rss+xml" title="Матеріали Лікар Поруч" href={href('/rss.xml')} />
-    {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
-  </head>
-  <body>
-    <a class="skip-link" href="#main">Перейти до вмісту</a>
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href={home} aria-label={`${siteSettings.name}, головна`}>
-          <img class="brand-logo" src={href('/brand/mark.svg')} alt="" width="34" height="38" />
-          <span>{siteSettings.name}</span>
-        </a>
-        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
-          <span aria-hidden="true" class="menu-icon"><i></i><i></i><i></i></span>
-          <span class="menu-label">Меню</span>
-        </button>
-        <nav id="site-nav" class="site-nav" aria-label="Основна навігація" data-nav-menu>
-          <div class="nav-panel">
-            <div class="nav-panel-head">
-              <strong>Навігація</strong>
-              <button class="menu-close" type="button" aria-label="Закрити меню">×</button>
-            </div>
-            {nav.map((item) => <a href={item.href}>{item.label}</a>)}
-            {russianUrl && <a href={russianUrl} lang="ru" hreflang="ru">RU</a>}
-            <a class="nav-book" href={href('/zapys/')}>Записатися</a>
-          </div>
-        </nav>
-        <a class="header-cta" href={href('/zapys/')}>Записатися</a>
-      </div>
-    </header>
-
-    <main id="main"><slot /></main>
-
-    <footer class="site-footer">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <a class="brand brand-light" href={home}>
-            <img class="brand-logo" src={href('/brand/mark-inverse.svg')} alt="" width="34" height="38" />
-            <span>{siteSettings.name}</span>
-          </a>
-          <p class="footer-lead">{siteSettings.tagline}</p>
-          <p>{siteSettings.demoNotice}</p>
-        </div>
-        <div>
-          <h2>Медичний центр</h2>
-          <a href={`${home}#posluhy`}>Послуги</a>
-          <a href={`${home}#likari`}>Лікарі</a>
-          <a href={`${home}#diagnostyka`}>Діагностика</a>
-          <a href={`${home}#pro-tsentr`}>Про центр</a>
-        </div>
-        <div>
-          <h2>Контакти</h2>
-          <a href={`tel:${siteSettings.phone}`}>{siteSettings.phoneDisplay}</a>
-          <p>{siteSettings.address}, Київ</p>
-          <a href={href('/privacy/')}>Приватність</a>
-        </div>
-        <div>
-          <h2>Важливо</h2>
-          <p>{siteSettings.emergencyNotice}</p>
-          <p>{siteSettings.medicalDisclaimer}</p>
-        </div>
-      </div>
-      <div class="footer-bottom"><span>© 2026 {siteSettings.name}</span><span>Приватна медична практика</span></div>
-    </footer>
-
-    <div class="mobile-action-bar" aria-label="Швидкі дії">
-      <a href={`tel:${siteSettings.phone}`}>Зателефонувати</a>
-      <a class="mobile-book" href={href('/zapys/')}>Записатися</a>
-    </div>
-
-    <PostHogAnalytics />
-    <script is:inline>
-      (() => {
-        const toggle = document.querySelector('.menu-toggle');
-        const close = document.querySelector('.menu-close');
-        const nav = document.querySelector('[data-nav-menu]');
-        if (!(toggle instanceof HTMLButtonElement) || !(nav instanceof HTMLElement)) return;
-        let lastFocused = null;
-        const focusableSelector = 'a[href], button:not([disabled])';
-        const setOpen = (open, restoreFocus = true) => {
-          toggle.setAttribute('aria-expanded', String(open));
-          nav.classList.toggle('is-open', open);
-          document.body.classList.toggle('menu-open', open);
-          if (open) {
-            lastFocused = document.activeElement;
-            requestAnimationFrame(() => nav.querySelector(focusableSelector)?.focus());
-          } else if (restoreFocus && lastFocused instanceof HTMLElement) {
-            lastFocused.focus();
-          }
-          if (!open) lastFocused = null;
-        };
-        toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
-        close?.addEventListener('click', () => setOpen(false));
-        nav.addEventListener('click', (event) => {
-          if (event.target === nav || event.target instanceof HTMLAnchorElement) setOpen(false);
-        });
-        document.addEventListener('keydown', (event) => {
-          if (!nav.classList.contains('is-open')) return;
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            setOpen(false);
-            return;
-          }
-          if (event.key !== 'Tab') return;
-          const focusable = Array.from(nav.querySelectorAll(focusableSelector));
-          if (!focusable.length) return;
-          const first = focusable[0];
-          const last = focusable[focusable.length - 1];
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-          }
-        });
-        const desktopMedia = window.matchMedia('(min-width: 1024px)');
-        const resetForDesktop = (event) => {
-          if (event.matches) setOpen(false, false);
-        };
-        desktopMedia.addEventListener('change', resetForDesktop);
-        if (desktopMedia.matches) setOpen(false, false);
-      })();
-    </script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title><meta name="description" content={description} /><link rel="canonical" href={canonical} />
+  <link rel="alternate" hreflang="uk" href={canonical} /><link rel="alternate" hreflang="x-default" href={canonical} />
+  <meta name="robots" content={noindex?'noindex, nofollow':'index, follow, max-image-preview:large'} /><meta name="theme-color" content="#0b2d69" />
+  <meta property="og:locale" content="uk_UA" /><meta property="og:type" content={type} /><meta property="og:site_name" content={siteSettings.name} />
+  <meta property="og:title" content={title} /><meta property="og:description" content={description} /><meta property="og:url" content={canonical} />
+  <meta property="og:image" content={imageUrl} /><meta property="og:image:alt" content="Медичний центр «Лікар Поруч»" />
+  <meta name="twitter:card" content="summary_large_image" /><meta name="twitter:title" content={title} /><meta name="twitter:description" content={description} /><meta name="twitter:image" content={imageUrl} />
+  <link rel="icon" href={href('/favicon.svg')} type="image/svg+xml" /><link rel="manifest" href={href('/manifest.webmanifest')} />
+  <link rel="alternate" type="application/rss+xml" title="Матеріали Лікар Поруч" href={href('/rss.xml')} />
+  {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
+</head>
+<body>
+  <a class="skip-link" href="#content">Перейти до вмісту</a>
+  <header class="site-header"><div class="header-inner">
+    <a class="brand" href={href('/')} aria-label={`${siteSettings.name}, головна`}><img class="brand-logo" src={href('/brand/mark.svg')} alt="" width="34" height="38" /><span>{siteSettings.name}</span></a>
+    <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span><span class="sr-only">Відкрити меню</span></button>
+    <nav id="site-nav" class="site-nav" aria-label="Основна навігація">{nav.map((item)=><a href={href(item.href)}>{item.label}</a>)}</nav>
+    <a class="header-cta" href={href('/zapys/')}>Записатися</a>
+  </div></header>
+  <main id="content"><slot /></main>
+  <footer class="site-footer"><div class="footer-grid">
+    <div><a class="brand brand-light" href={href('/')}><img class="brand-logo" src={href('/brand/mark-inverse.svg')} alt="" width="34" height="38" /><span>{siteSettings.name}</span></a><p class="footer-lead">{siteSettings.tagline}</p><p class="demo-note">{siteSettings.demoNotice}</p></div>
+    <div><h2>Медичний центр</h2><a href={href('/posluhy/')}>Послуги</a><a href={href('/pro-nas/')}>Про центр</a><a href={href('/kontakty/')}>Контакти</a></div>
+    <div><h2>Зв’язок</h2><a href={`tel:${siteSettings.phone}`}>{siteSettings.phoneDisplay}</a><p>{siteSettings.address}</p><a href={href('/privacy/')}>Приватність</a><button type="button" class="footer-privacy-link" data-consent-open>Налаштування приватності</button></div>
+    <div><h2>Важливо</h2><p>{siteSettings.emergencyNotice}</p><p>{siteSettings.medicalDisclaimer}</p></div>
+  </div><div class="footer-bottom"><span>© 2026 {siteSettings.name}</span><span>Приватна медична практика</span></div></footer>
+  <CookieConsent />
+  <PostHogAnalytics />
+  <script is:inline>
+    const toggle=document.querySelector('.menu-toggle');const nav=document.querySelector('#site-nav');toggle?.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));nav?.classList.toggle('is-open',!open);});
+  </script>
+</body></html>

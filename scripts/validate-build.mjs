@@ -1,22 +1,104 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const root = path.resolve('dist');
+const root = path.resolve(process.env.VALIDATE_BUILD_ROOT || 'dist');
+const basePath = '/likar-poruch';
 const siteOrigin = (process.env.PUBLIC_SITE_URL || 'https://aph3xx.github.io').replace(/\/$/, '');
+const errors = [];
 const files = [];
-function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full);else if(entry.name.endsWith('.html'))files.push(full);}}
-walk(root);
-const errors=[];
-const existing=new Set();
-function routeFor(file){let rel=path.relative(root,file).split(path.sep).join('/');if(rel==='index.html')return '/likar-poruch/';if(rel.endsWith('/index.html'))return '/likar-poruch/'+rel.slice(0,-10)+'/';return '/likar-poruch/'+rel;}
-for(const file of files)existing.add(routeFor(file).replace(/\/+/g,'/'));
-for(const file of files){const html=fs.readFileSync(file,'utf8');const rel=path.relative(root,file);const expectedLang=rel.startsWith(`ru${path.sep}`)?'ru':'uk';const checks=[
-  [(html.match(/<h1(?:\s|>)/gi)||[]).length===1,'exactly one H1'],
-  [new RegExp(`<html[^>]+lang="${expectedLang}"`,'i').test(html),`html lang=${expectedLang}`],
-  [/<title>[^<]{10,}<\/title>/i.test(html),'non-empty title'],
-  [/<meta[^>]+name="description"[^>]+content="[^"]{40,}"/i.test(html),'meta description'],
-  [html.includes(`rel="canonical" href="${siteOrigin}/likar-poruch/`),'canonical']
-];for(const [ok,label] of checks)if(!ok)errors.push(`${rel}: missing ${label}`);
-  for(const match of html.matchAll(/href="(\/likar-poruch\/[^"]*)"/g)){let href=match[1].split(/[?#]/)[0];if(/\.(svg|webp|xml|webmanifest|txt|css|js)$/i.test(href))continue;if(!href.endsWith('/'))href+='/';if(!existing.has(href))errors.push(`${rel}: broken internal link ${match[1]}`);}
+
+function walk(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(full);
+    else if (entry.name.endsWith('.html')) files.push(full);
+  }
 }
-if(errors.length){console.error(errors.join('\n'));process.exit(1);}console.log(`Validated ${files.length} HTML pages: metadata, one H1, canonicals, language, and internal links pass.`);
+
+function routeFor(file) {
+  const rel = path.relative(root, file).split(path.sep).join('/');
+  if (rel === 'index.html') return `${basePath}/`;
+  if (rel === '404.html') return `${basePath}/404/`;
+  if (rel.endsWith('/index.html')) return `${basePath}/${rel.slice(0, -10)}/`.replace(/\/{2,}/g, '/');
+  return `${basePath}/${rel}`.replace(/\/{2,}/g, '/');
+}
+
+function attr(html, name, value) {
+  const match = html.match(new RegExp(`<meta[^>]+${name}="${value}"[^>]+content="([^"]*)"`, 'i'));
+  return match?.[1] || '';
+}
+
+walk(root);
+const existing = new Set(files.map(routeFor));
+const titles = new Map();
+const descriptions = new Map();
+
+for (const file of files) {
+  const html = fs.readFileSync(file, 'utf8');
+  const rel = path.relative(root, file).split(path.sep).join('/');
+  const route = routeFor(file);
+  const title = html.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim() || '';
+  const description = attr(html, 'name', 'description');
+  const canonical = html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i)?.[1] || '';
+  const robots = attr(html, 'name', 'robots');
+  const canonicalCount = (html.match(/rel="canonical"/gi) || []).length;
+  const h1Count = (html.match(/<h1(?:\s|>)/gi) || []).length;
+  const pageErrors = [
+    [h1Count === 1, 'exactly one H1'],
+    [/<html[^>]+lang="uk"/i.test(html), 'html lang=uk'],
+    [title.length >= 10, 'non-empty title'],
+    [description.length >= 40, 'meta description'],
+    [canonical === `${siteOrigin}${route}`, 'canonical matches route and origin'],
+    [canonicalCount === 1, 'exactly one canonical'],
+    [html.includes(`hreflang="uk"`) && html.includes(`hreflang="x-default"`), 'Ukrainian hreflang'],
+    [!/<link[^>]+hreflang="(?!uk|x-default)[^"]+"/i.test(html), 'only Ukrainian hreflang'],
+    [robots.includes('noindex') ? route === `${basePath}/privacy/` || route === `${basePath}/404/` : true, 'noindex only on intentional pages'],
+    [route !== `${basePath}/privacy/` || (robots.includes('noindex') && robots.includes('nofollow')), 'privacy route must remain noindex, nofollow']
+  ];
+  for (const [ok, label] of pageErrors) if (!ok) errors.push(`${rel}: ${label}`);
+  if (title) titles.set(title, [...(titles.get(title) || []), route]);
+  if (description) descriptions.set(description, [...(descriptions.get(description) || []), route]);
+
+  for (const match of html.matchAll(/href="(\/[^\"]*)"/g)) {
+    const originalHref = match[1];
+    let href = originalHref.split(/[?#]/)[0];
+    if (/\.(svg|webp|png|jpg|xml|webmanifest|txt|css|js|ico)$/i.test(href)) continue;
+    if (href === '/') href = `${basePath}/`;
+    else if (!href.startsWith(`${basePath}/`)) href = `${basePath}${href}`;
+    if (!href.endsWith('/')) href += '/';
+    if (!existing.has(href)) errors.push(`${rel}: broken internal link ${originalHref}`);
+  }
+
+  for (const script of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)) {
+    try { JSON.parse(script[1]); } catch { errors.push(`${rel}: malformed JSON-LD`); }
+  }
+}
+
+for (const [title, routes] of titles) if (routes.length > 1) errors.push(`duplicate title on ${routes.join(', ')}: ${title}`);
+for (const [, routes] of descriptions) if (routes.length > 1) errors.push(`duplicate description on ${routes.join(', ')}`);
+
+const sitemapPath = fs.existsSync(path.join(root, 'sitemap-0.xml')) ? 'sitemap-0.xml' : 'sitemap-index.xml';
+const sitemap = fs.readFileSync(path.join(root, sitemapPath), 'utf8');
+const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+if (!sitemapUrls.length) errors.push(`${sitemapPath}: contains no URLs`);
+for (const url of sitemapUrls) {
+  if (!url.startsWith(siteOrigin + basePath) || !url.endsWith('/')) errors.push(`${sitemapPath}: invalid canonical URL ${url}`);
+  const route = url.startsWith(siteOrigin) ? url.slice(siteOrigin.length) : '';
+  if (route.includes('/ru/') || route === `${basePath}/privacy/` || route === `${basePath}/404/`) errors.push(`${sitemapPath}: contains non-indexable URL ${url}`);
+  if (!existing.has(route)) errors.push(`${sitemapPath}: URL has no generated page ${url}`);
+  else {
+    const page = files.find((file) => routeFor(file) === route);
+    const html = fs.readFileSync(page, 'utf8');
+    if (/name="robots"[^>]+content="[^"]*noindex/i.test(html)) errors.push(`${sitemapPath}: URL has noindex page ${url}`);
+  }
+}
+
+const robots = fs.readFileSync(path.join(root, 'robots.txt'), 'utf8');
+if (!robots.includes(`Sitemap: ${siteOrigin}${basePath}/sitemap-index.xml`)) errors.push('robots.txt: sitemap URL does not match configured origin/base');
+if (robots.includes('/ru/')) errors.push('robots.txt: contains retired Russian URL');
+
+if (errors.length) {
+  console.error(errors.join('\n'));
+  process.exit(1);
+}
+console.log(`Validated ${files.length} HTML pages: unique Ukrainian metadata, JSON-LD, canonical-only sitemap, robots, and internal links pass.`);

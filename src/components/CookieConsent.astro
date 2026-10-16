@@ -1,0 +1,77 @@
+<div class="consent-banner" data-consent-banner hidden role="region" aria-label="Налаштування приватності">
+  <div class="consent-banner-copy">
+    <p class="consent-title">Налаштування приватності</p>
+    <p>Ми використовуємо лише необхідні технології за замовчуванням. За бажанням можна дозволити анонімну аналітику PostHog. <a href={`${import.meta.env.BASE_URL}privacy/`}>Дізнатися більше</a></p>
+  </div>
+  <div class="consent-actions">
+    <button type="button" class="button consent-reject" data-consent-reject>Відхилити необов’язкові</button>
+    <button type="button" class="button yellow" data-consent-accept>Дозволити аналітику</button>
+    <button type="button" class="consent-settings-link" data-consent-open>Налаштувати</button>
+  </div>
+</div>
+
+<dialog class="consent-dialog" data-consent-dialog aria-labelledby="consent-dialog-title">
+  <form method="dialog" class="consent-dialog-card" data-consent-form>
+    <button type="button" class="consent-close" data-consent-close aria-label="Закрити налаштування">×</button>
+    <p class="eyebrow">Приватність</p>
+    <h2 id="consent-dialog-title">Ваші налаштування</h2>
+    <p>Оберіть, які необов’язкові технології дозволити. Вибір можна змінити будь-коли за посиланням «Налаштування приватності» внизу сторінки.</p>
+    <label class="consent-option">
+      <input type="checkbox" checked disabled />
+      <span><strong>Необхідні</strong><small>Потрібні для роботи сайту, навігації та збереження цього вибору. Вони не можуть бути вимкнені.</small></span>
+    </label>
+    <label class="consent-option">
+      <input type="checkbox" data-consent-analytics name="analytics" />
+      <span><strong>Анонімна аналітика</strong><small>PostHog отримує перегляди сторінок і технічні події запису без імені, телефона чи медичних даних. Сесії не записуються.</small></span>
+    </label>
+    <div class="consent-dialog-actions">
+      <button type="button" class="button consent-reject" data-consent-reject>Відхилити необов’язкові</button>
+      <button type="submit" class="button yellow" data-consent-save>Зберегти вибір</button>
+    </div>
+  </form>
+</dialog>
+
+<script is:inline>
+  (() => {
+    const KEY = 'likar-consent-v1';
+    const VERSION = '2026-10-16';
+    const MAX_AGE = 180 * 24 * 60 * 60 * 1000;
+    const banner = document.querySelector('[data-consent-banner]');
+    const dialog = document.querySelector('[data-consent-dialog]');
+    const analytics = document.querySelector('[data-consent-analytics]');
+    if (!banner || !dialog || !analytics) return;
+
+    const read = () => {
+      try {
+        const value = JSON.parse(localStorage.getItem(KEY) || 'null');
+        if (!value || value.version !== VERSION || Date.now() - value.timestamp > MAX_AGE) return null;
+        return value;
+      } catch (_) { return null; }
+    };
+    const publish = (analyticsAllowed, action) => {
+      const value = { version: VERSION, timestamp: Date.now(), purposes: { analytics: analyticsAllowed }, action };
+      try { localStorage.setItem(KEY, JSON.stringify(value)); } catch (_) { /* storage may be disabled */ }
+      window.dispatchEvent(new CustomEvent('likar:consent-changed', { detail: value }));
+      banner.hidden = true;
+      dialog.close();
+    };
+    const current = read();
+    if (current) {
+      analytics.checked = current.purposes.analytics === true;
+    } else {
+      banner.hidden = false;
+    }
+    document.querySelectorAll('[data-consent-open]').forEach((button) => button.addEventListener('click', () => {
+      const saved = read();
+      analytics.checked = saved?.purposes?.analytics === true;
+      dialog.showModal();
+    }));
+    document.querySelectorAll('[data-consent-close]').forEach((button) => button.addEventListener('click', () => dialog.close()));
+    document.querySelectorAll('[data-consent-accept]').forEach((button) => button.addEventListener('click', () => publish(true, 'accept_all')));
+    document.querySelectorAll('[data-consent-reject]').forEach((button) => button.addEventListener('click', () => publish(false, 'reject_all')));
+    document.querySelector('[data-consent-save]')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      publish(analytics.checked, 'save_preferences');
+    });
+  })();
+</script>

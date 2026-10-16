@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://aph3xx.github.io/likar-poruch/sitemap-index.xml

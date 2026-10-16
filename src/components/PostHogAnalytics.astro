@@ -1,30 +1,64 @@
 <script>
-  import posthog from 'posthog-js';
-
   const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY?.trim();
   const posthogHost =
     import.meta.env.PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
   const doNotTrackEnabled =
     navigator.doNotTrack === '1' || navigator.doNotTrack === 'yes';
+  type PostHogClient = typeof import('posthog-js').default;
+  let posthog: PostHogClient | null = null;
+  let sdkLoad: Promise<PostHogClient> | null = null;
+  let initialized = false;
+  let consentEnabled = false;
 
-  if (posthogKey && !doNotTrackEnabled) {
-    posthog.init(posthogKey, {
-      api_host: posthogHost,
-      person_profiles: 'identified_only',
-      capture_pageview: true,
-      capture_pageleave: true,
-      disable_session_recording: true,
-      autocapture: false,
-      cookieless_mode: 'always',
-      respect_dnt: true,
-    });
+  const disableAnalytics = () => {
+    consentEnabled = false;
+    if (!initialized || !posthog) return;
+    posthog.opt_out_capturing();
+    posthog.reset();
+  };
 
-    window.addEventListener('likar:booking_started', () => {
-      posthog.capture('booking_started');
-    });
+  const loadPostHog = async () => {
+    if (!sdkLoad) {
+      sdkLoad = import('posthog-js').then((module) => module.default);
+    }
+    return sdkLoad;
+  };
 
-    window.addEventListener('likar:booking_submitted', () => {
-      posthog.capture('booking_submitted');
-    });
-  }
+  const enableAnalytics = async () => {
+    if (!posthogKey || doNotTrackEnabled) return;
+    consentEnabled = true;
+    if (!initialized) {
+      const client = await loadPostHog();
+      if (!consentEnabled) return;
+      posthog = client;
+      posthog.init(posthogKey, {
+        api_host: posthogHost,
+        person_profiles: 'identified_only',
+        capture_pageview: true,
+        capture_pageleave: true,
+        disable_session_recording: true,
+        autocapture: false,
+        cookieless_mode: 'always',
+        respect_dnt: true,
+      });
+      initialized = true;
+      window.addEventListener('likar:booking_started', () => client.capture('booking_started'));
+      window.addEventListener('likar:booking_submitted', () => client.capture('booking_submitted'));
+    } else if (posthog) {
+      posthog.opt_in_capturing();
+    }
+  };
+
+  window.addEventListener('likar:consent-changed', (event) => {
+    const consent = (event as CustomEvent<{ purposes?: { analytics?: boolean } }>).detail;
+    if (consent?.purposes?.analytics === true) enableAnalytics();
+    else disableAnalytics();
+  });
+
+  // CookieConsent is loaded before this component; only a stored affirmative
+  // choice may initialize the SDK. Absence or expiry remains denied.
+  try {
+    const stored = JSON.parse(localStorage.getItem('likar-consent-v1') || 'null');
+    if (stored?.version === '2026-10-16' && stored?.purposes?.analytics === true && Date.now() - stored.timestamp <= 180 * 24 * 60 * 60 * 1000) enableAnalytics();
+  } catch (_) { /* optional storage is unavailable; remain denied */ }
 </script>
