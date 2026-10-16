@@ -1,0 +1,5 @@
+Contact: https://github.com/aph3xx/likar-poruch/security/advisories/new
+Expires: 2027-10-16T00:00:00.000Z
+Preferred-Languages: uk, en
+Canonical: https://aph3xx.github.io/likar-poruch/.well-known/security.txt
+Policy: https://github.com/aph3xx/likar-poruch/security/policy

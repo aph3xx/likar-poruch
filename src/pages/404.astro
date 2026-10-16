@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const base=import.meta.env.BASE_URL.replace(/\/$/,'');
+---
+<BaseLayout title="Сторінку не знайдено | Лікар Поруч" description="Такої сторінки немає. Поверніться до каталогу лікарів або журналу Лікар Поруч." path="/404/" noindex={true}>
+  <section class="not-found"><strong>404</strong><h1>Сторінка пішла на прийом</h1><p class="lead" style="margin-inline:auto">Посилання могло змінитися. Поверніться до каталогу та продовжте пошук.</p><a class="button" href={`${base}/likari/`}>До каталогу лікарів</a></section>
+</BaseLayout>

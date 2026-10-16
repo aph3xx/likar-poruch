@@ -1,0 +1,8 @@
+---
+interface Props { items: { label: string; href?: string }[] }
+const { items } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<nav class="breadcrumbs" aria-label="Навігаційний шлях">
+  {items.map((item, index) => <>{index > 0 && <span aria-hidden="true">/</span>}{item.href ? <a href={`${base}${item.href}`}>{item.label}</a> : <span aria-current="page">{item.label}</span>}</>)}
+</nav>

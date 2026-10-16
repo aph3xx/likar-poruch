@@ -1,0 +1,12 @@
+---
+interface Doctor { slug:string; name:string; initials:string; specialty:string; city:string; experience:string; format:string; accent:string; }
+interface Props { doctor: Doctor }
+const { doctor } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<a class="doctor-card" href={`${base}/likari/${doctor.slug}/`} data-doctor data-name={doctor.name.toLowerCase()} data-specialty={doctor.specialty.toLowerCase()} data-city={doctor.city.toLowerCase()}>
+  <span class={`avatar ${doctor.accent}`} aria-hidden="true">{doctor.initials}</span>
+  <span><h3>{doctor.name}</h3><p>{doctor.specialty} · {doctor.city}</p></span>
+  <span class="doctor-meta"><span class="tag">{doctor.experience}</span><span class="tag">{doctor.format}</span></span>
+  <span class="arrow" aria-hidden="true">→</span>
+</a>

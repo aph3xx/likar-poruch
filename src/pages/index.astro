@@ -1,0 +1,56 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DoctorCard from '../components/DoctorCard.astro';
+import doctors from '../data/doctors.json';
+import articles from '../data/articles.json';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const specialties = [
+  ['simeinyi-likar','Сімейний лікар','Профілактика та супровід'],['pediatr','Педіатр','Здоров’я дітей'],['kardioloh','Кардіолог','Серце та судини'],['dermatoloh','Дерматолог','Шкіра, волосся, нігті'],['hinekoloh','Гінеколог','Жіноче здоров’я'],['nevroloh','Невролог','Нервова система']
+];
+const faq = [
+  ['Як перевіряються лікарі?', 'У цьому прототипі профілі є демонстраційними. У повному сервісі публікація має відбуватися лише після перевірки освіти, спеціалізації, місця практики та права на професійну діяльність за доступними офіційними джерелами.'],
+  ['Чи можна записатися на прийом?', 'Форма запису демонстраційна і не надсилає дані. Вона показує очікуваний сценарій майбутнього сервісу без обробки медичної інформації.'],
+  ['Чи замінює сайт консультацію?', 'Ні. Каталог допомагає знайти фахівця, а журнал дає загальну освітню інформацію. Діагноз і лікування визначаються під час консультації.'],
+  ['Що робити у невідкладному стані?', 'Не чекайте відповіді в чаті чи планового прийому. За загрози життю телефонуйте 103 або 112.']
+];
+const schema = [
+  {'@context':'https://schema.org','@type':'Organization','name':'Лікар Поруч','url':`${base ? 'https://aph3xx.github.io'+base+'/' : ''}`,'description':'Український демонстраційний каталог лікарів та освітніх матеріалів про здоров’я.'},
+  {'@context':'https://schema.org','@type':'WebSite','name':'Лікар Поруч','url':`https://aph3xx.github.io${base}/`,'inLanguage':'uk-UA','potentialAction':{'@type':'SearchAction','target':`https://aph3xx.github.io${base}/likari/?q={search_term_string}`,'query-input':'required name=search_term_string'}},
+  {'@context':'https://schema.org','@type':'FAQPage','mainEntity':faq.map(([name,text])=>({'@type':'Question','name':name,'acceptedAnswer':{'@type':'Answer','text':text}}))}
+];
+---
+<BaseLayout title="Лікар Поруч | Знайти лікаря в Україні" description="Знайдіть лікаря за спеціальністю та містом. Зрозумілі профілі, прозора методологія й корисні матеріали про здоров’я українською." schema={schema}>
+  <section class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Український каталог лікарів</p>
+        <h1>Ваш лікар має бути <em>поруч.</em></h1>
+        <p class="lead">Шукайте фахівця за потребою, містом і форматом консультації. Без шуму, перебільшень і прихованих рейтингів.</p>
+        <form class="search-box" action={`${base}/likari/`} method="get">
+          <div class="search-field"><label for="specialty">Спеціальність</label><select id="specialty" name="specialty"><option value="">Будь-яка</option>{specialties.map(([slug,label])=><option value={slug}>{label}</option>)}</select></div>
+          <div class="search-field"><label for="city">Місто</label><select id="city" name="city"><option value="">Уся Україна</option><option value="kyiv">Київ</option><option value="lviv">Львів</option><option value="odesa">Одеса</option></select></div>
+          <button class="button" type="submit">Знайти</button>
+        </form>
+        <div class="micro-trust"><span>Профілі без платного ранжування</span><span>Зрозуміла методологія</span></div>
+      </div>
+      <div class="hero-photo"><img src={`${base}/images/doctor-hero.webp`} width="1600" height="1000" alt="Лікарка у білому халаті біля сучасної клініки" fetchpriority="high" /></div>
+    </div>
+  </section>
+  <section class="section"><div class="container">
+    <div class="section-head"><div><p class="eyebrow">Почніть із потреби</p><h2>Оберіть напрям консультації</h2></div><a class="text-link" href={`${base}/likari/`}>Переглянути всіх →</a></div>
+    <div class="specialty-grid">{specialties.map(([slug,label,desc],i)=><a class="specialty-link" href={`${base}/spetsialnosti/${slug}/`}><span class="icon">{String(i+1).padStart(2,'0')}</span><strong>{label}</strong><span>{desc}</span></a>)}</div>
+  </div></section>
+  <section class="section section-ice"><div class="container">
+    <div class="section-head"><div><p class="eyebrow">Демонстраційні профілі</p><h2>Лікарі для різних запитів</h2></div><p class="lead">Приклад того, як можуть виглядати чіткі профілі без непрозорих рейтингів.</p></div>
+    <div class="doctor-list">{doctors.slice(0,4).map((doctor)=><DoctorCard doctor={doctor} />)}</div>
+  </div></section>
+  <section class="section section-ink"><div class="container trust-grid">
+    <div><p class="eyebrow">Довіра до процесу</p><h2>Не «топ лікарів», а зрозумілий вибір</h2><p class="lead">Майбутня методологія сервісу має пояснювати, що перевірено, коли оновлено дані та чому профіль показано у видачі.</p><a class="button yellow" href={`${base}/yak-tse-pratsiuie/`}>Як це працює</a></div>
+    <div class="method-list"><div class="method-item"><div><h3>Перевірка фактів</h3><p>Освіта, спеціалізація та місце практики з позначенням джерела.</p></div></div><div class="method-item"><div><h3>Без куплених позицій</h3><p>Платне просування не маскується під органічний результат.</p></div></div><div class="method-item"><div><h3>Відгуки після візиту</h3><p>Публікуються лише після підтвердженої взаємодії та модерації.</p></div></div></div>
+  </div></section>
+  <section class="section"><div class="container">
+    <div class="section-head"><div><p class="eyebrow">Журнал здоров’я</p><h2>Менше тривоги. Більше ясності.</h2></div><a class="text-link" href={`${base}/zhurnal/`}>Усі матеріали →</a></div>
+    <div class="journal-grid">{articles.slice(0,3).map((article)=><a class="article-card" href={`${base}/zhurnal/${article.slug}/`}><span class="article-card-meta">{article.category} · {article.readingTime}</span><div><h3>{article.title}</h3><p>{article.description}</p></div><span class="text-link">Читати →</span></a>)}</div>
+  </div></section>
+  <section class="section section-ice"><div class="container narrow"><p class="eyebrow">Питання та відповіді</p><h2>Важливе перед пошуком</h2><div class="faq-list">{faq.map(([question,answer])=><details><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section>
+</BaseLayout>

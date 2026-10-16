@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import DoctorCard from '../../components/DoctorCard.astro';
+import doctors from '../../data/doctors.json';
+const cities={kyiv:{name:'Київ',locative:'Києві',intro:'Столиця має широкий вибір первинної та спеціалізованої допомоги. Порівнюйте формат консультації й розташування, а не лише популярність профілю.'},lviv:{name:'Львів',locative:'Львові',intro:'Шукайте лікаря у Львові за напрямом, форматом прийому та зручністю подальшого супроводу.'},odesa:{name:'Одеса',locative:'Одесі',intro:'Добирайте фахівця в Одесі за потребою, підходом до комунікації та можливістю очної або онлайн-консультації.'}};
+export function getStaticPaths(){return ['kyiv','lviv','odesa'].map(slug=>({params:{slug}}));}
+const slug=Astro.params.slug as keyof typeof cities; const data=cities[slug]; const base=import.meta.env.BASE_URL.replace(/\/$/,''); const matches=doctors.filter(d=>d.citySlug===slug);
+const schema={'@context':'https://schema.org','@type':'ItemList','name':`Лікарі у ${data.locative}`,'itemListElement':matches.map((d,i)=>({'@type':'ListItem','position':i+1,'name':d.name,'url':`https://aph3xx.github.io${base}/likari/${d.slug}/`}))};
+---
+<BaseLayout title={`Лікарі у ${data.locative} за спеціальністю | Лікар Поруч`} description={`Знайдіть лікаря у ${data.locative}. Демонстраційні профілі, спеціальності, формат консультації та поради для підготовки до прийому.`} path={`/mista/${slug}/`} schema={schema}>
+  <section class="page-hero"><div class="container"><Breadcrumbs items={[{label:'Головна',href:'/'},{label:'Лікарі',href:'/likari/'},{label:data.name}]} /><p class="eyebrow">Місто</p><h1>Лікарі у {data.locative}</h1><p class="lead">{data.intro}</p><div class="city-specialty-links"><a class="tag" href={`${base}/spetsialnosti/simeinyi-likar/`}>Сімейний лікар</a><a class="tag" href={`${base}/spetsialnosti/pediatr/`}>Педіатр</a><a class="tag" href={`${base}/spetsialnosti/kardioloh/`}>Кардіолог</a><a class="tag" href={`${base}/spetsialnosti/dermatoloh/`}>Дерматолог</a></div></div></section>
+  <section class="section"><div class="container"><div class="demo-alert"><strong>Демонстраційні профілі.</strong> Дані створені для показу майбутнього сервісу.</div><div class="doctor-list">{matches.map(d=><DoctorCard doctor={d} />)}</div></div></section>
+  <section class="section section-ice"><div class="container narrow"><p class="eyebrow">Перед прийомом</p><h2>Як обрати зручний формат</h2><div class="content-copy"><p>Для першого огляду, процедур і фізикального обстеження частіше потрібна очна зустріч. Онлайн-консультація може бути доречною для обговорення результатів або повторного супроводу, якщо лікар вважає це безпечним.</p><p>Уточніть адресу, доступність приміщення, тривалість прийому та правила перенесення. Не надсилайте медичні документи через незахищені канали.</p></div></div></section>
+</BaseLayout>

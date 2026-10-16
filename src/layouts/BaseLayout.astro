@@ -1,0 +1,103 @@
+---
+import '../styles/global.css';
+import siteSettings from '../data/site.json';
+interface Props {
+  title: string;
+  description: string;
+  path?: string;
+  image?: string;
+  type?: 'website' | 'article' | 'profile';
+  noindex?: boolean;
+  schema?: Record<string, unknown> | Record<string, unknown>[];
+}
+const {
+  title,
+  description,
+  path = '/',
+  image = '/images/doctor-hero.webp',
+  type = 'website',
+  noindex = false,
+  schema
+} = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const siteOrigin = 'https://aph3xx.github.io';
+const normalizedPath = path === '/' ? '/' : `/${path.replace(/^\/+|\/+$/g, '')}/`;
+const canonical = `${siteOrigin}${base}${normalizedPath}`;
+const imageUrl = image.startsWith('http') ? image : `${siteOrigin}${base}${image}`;
+const nav = [
+  { href: '/likari/', label: 'Лікарі' },
+  { href: '/spetsialnosti/simeinyi-likar/', label: 'Спеціальності' },
+  { href: '/zhurnal/', label: 'Журнал' },
+  { href: '/yak-tse-pratsiuie/', label: 'Як це працює' }
+];
+const href = (value: string) => `${base}${value}`;
+---
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="uk" href={canonical} />
+    <link rel="alternate" hreflang="x-default" href={canonical} />
+    <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'} />
+    <meta name="theme-color" content="#10233b" />
+    <meta property="og:locale" content="uk_UA" />
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content={siteSettings.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:image:alt" content="Лікар Поруч, український каталог лікарів" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={imageUrl} />
+    <link rel="icon" href={href('/favicon.svg')} type="image/svg+xml" />
+    <link rel="manifest" href={href('/manifest.webmanifest')} />
+    <link rel="alternate" type="application/rss+xml" title="Журнал Лікар Поруч" href={href('/rss.xml')} />
+    {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Перейти до вмісту</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href={href('/')} aria-label={`${siteSettings.name}, головна`}>
+          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <span>{siteSettings.name}</span>
+        </a>
+        <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span><span class="sr-only">Відкрити меню</span></button>
+        <nav id="site-nav" class="site-nav" aria-label="Основна навігація">
+          {nav.map((item) => <a href={href(item.href)}>{item.label}</a>)}
+        </nav>
+        <a class="header-cta" href={href('/likari/')}>Знайти лікаря</a>
+      </div>
+    </header>
+    <main id="content"><slot /></main>
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div>
+          <a class="brand brand-light" href={href('/')}><span class="brand-mark" aria-hidden="true"><span></span></span><span>{siteSettings.name}</span></a>
+          <p class="footer-lead">{siteSettings.tagline}</p>
+          <p class="demo-note">{siteSettings.demoNotice}</p>
+        </div>
+        <div><h2>Каталог</h2><a href={href('/likari/')}>Усі лікарі</a><a href={href('/mista/kyiv/')}>Київ</a><a href={href('/mista/lviv/')}>Львів</a><a href={href('/mista/odesa/')}>Одеса</a></div>
+        <div><h2>Інформація</h2><a href={href('/pro-nas/')}>Про нас</a><a href={href('/yak-tse-pratsiuie/')}>Як це працює</a><a href={href('/zhurnal/')}>Журнал</a><a href={href('/privacy/')}>Приватність</a></div>
+        <div><h2>Важливо</h2><p>{siteSettings.emergencyNotice}</p><p>{siteSettings.medicalDisclaimer}</p></div>
+      </div>
+      <div class="footer-bottom"><span>© 2026 {siteSettings.name}</span><span>Фото: <a href="https://www.pexels.com/photo/a-doctor-in-a-white-coat-8459997/" rel="nofollow noopener">Los Muertos Crew / Pexels</a></span></div>
+    </footer>
+    <script is:inline>
+      const toggle = document.querySelector('.menu-toggle');
+      const nav = document.querySelector('#site-nav');
+      toggle?.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!open));
+        nav?.classList.toggle('is-open', !open);
+      });
+    </script>
+  </body>
+</html>

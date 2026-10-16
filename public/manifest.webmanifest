@@ -1,0 +1,12 @@
+{
+  "name": "Лікар Поруч",
+  "short_name": "Лікар Поруч",
+  "description": "Український каталог лікарів",
+  "lang": "uk",
+  "start_url": "/likar-poruch/",
+  "scope": "/likar-poruch/",
+  "display": "standalone",
+  "background_color": "#edf5ff",
+  "theme_color": "#10233b",
+  "icons": [{"src":"/likar-poruch/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}

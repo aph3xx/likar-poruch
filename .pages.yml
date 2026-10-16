@@ -1,0 +1,72 @@
+media:
+  input: public/images
+  output: /likar-poruch/images
+  categories: [image]
+  extensions: [jpg, jpeg, png, webp, svg]
+
+content:
+  - name: site
+    label: Налаштування сайту
+    type: file
+    path: src/data/site.json
+    format: json
+    fields:
+      - { name: name, label: Назва, type: string, required: true }
+      - { name: tagline, label: Короткий опис, type: text, required: true }
+      - { name: demoNotice, label: Позначка демонстраційного сервісу, type: text, required: true }
+      - { name: emergencyNotice, label: Екстрене повідомлення, type: text, required: true }
+      - { name: medicalDisclaimer, label: Медичне застереження, type: text, required: true }
+  - name: doctors
+    label: Лікарі
+    type: file
+    path: src/data/doctors.json
+    format: json
+    list: true
+    fields:
+      - { name: slug, label: URL slug, type: string, required: true }
+      - { name: name, label: Ім’я, type: string, required: true }
+      - { name: initials, label: Ініціали, type: string, required: true }
+      - { name: specialty, label: Спеціальність, type: string, required: true }
+      - { name: specialtySlug, label: Slug спеціальності, type: string, required: true }
+      - { name: city, label: Місто, type: string, required: true }
+      - { name: citySlug, label: Slug міста, type: string, required: true }
+      - { name: experience, label: Досвід, type: string }
+      - name: languages
+        label: Мови
+        type: string
+        list: true
+      - name: focus
+        label: Напрями роботи
+        type: string
+        list: true
+      - { name: format, label: Формат, type: string }
+      - { name: bio, label: Опис, type: text }
+      - name: accent
+        label: Колір аватара
+        type: select
+        options:
+          values: [blue, yellow, coral, mint, lilac, navy]
+  - name: articles
+    label: Статті
+    type: file
+    path: src/data/articles.json
+    format: json
+    list: true
+    fields:
+      - { name: slug, label: URL slug, type: string, required: true }
+      - { name: title, label: Заголовок, type: string, required: true }
+      - { name: description, label: SEO опис, type: text, required: true }
+      - { name: category, label: Категорія, type: string }
+      - { name: published, label: Опубліковано, type: date, required: true }
+      - { name: updated, label: Оновлено, type: date, required: true }
+      - { name: readingTime, label: Час читання, type: string }
+      - { name: author, label: Автор, type: string }
+      - { name: reviewer, label: Медична перевірка, type: string }
+      - { name: intro, label: Вступ, type: text }
+      - name: sections
+        label: Розділи
+        type: object
+        list: true
+        fields:
+          - { name: heading, label: Підзаголовок, type: string }
+          - { name: text, label: Текст, type: text }
