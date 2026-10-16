@@ -1,19 +1,18 @@
 ---
-import serviceData from '../data/services.json';
-import site from '../data/site.json';
+
 
 interface Props { compact?: boolean }
 const { compact = false } = Astro.props;
-const serviceOptions = serviceData.map((service) => service.titleUk);
+
 ---
 <section class:list={['appointment-card', { compact }]} aria-labelledby="appointment-form-title">
   <div class="form-heading">
     <p class="form-kicker">Запит на запис</p>
-    <h2 id="appointment-form-title">{compact ? 'Підготуйте SMS-запит' : 'Оберіть бажані дату й час'}</h2>
-    <p>Перевірте заповнені дані перед надсиланням. Дату й час підтверджує адміністратор.</p>
+    <h2 id="appointment-form-title">{compact ? 'Збережіть запит' : 'Залиште запит на прийом'}</h2>
+    <p>Запит збережеться лише як локальна чернетка на цьому пристрої. Сайт не надсилає його до медичного центру.</p>
   </div>
 
-  <form class="appointment-form" data-appointment-form data-booking-endpoint={`sms:${site.phone}`} novalidate>
+  <form class="appointment-form" data-appointment-form novalidate>
     <div class="error-summary" data-error-summary role="alert" tabindex="-1" hidden>
       <strong>Перевірте, будь ласка, дані</strong>
       <ul data-error-list></ul>
@@ -34,46 +33,23 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
     </div>
 
     <div class="field field-wide">
-      <label for="booking-service">Послуга <span aria-hidden="true">*</span></label>
-      <select id="booking-service" name="service" aria-describedby="booking-service-hint booking-service-error" data-validate required>
-        <option value="">Оберіть послугу</option>
-        {serviceOptions.map((service) => <option value={service}>{service}</option>)}
-      </select>
-      <span class="field-hint" id="booking-service-hint">Доступність послуги підтвердимо окремо.</span>
-      <span class="field-error" id="booking-service-error"></span>
-    </div>
-
-    <div class="field">
-      <label for="booking-date">Бажана дата <span aria-hidden="true">*</span></label>
-      <input id="booking-date" name="date" type="date" aria-describedby="booking-date-hint booking-date-error" data-validate required />
-      <span class="field-hint" id="booking-date-hint">Сьогодні або пізніше.</span>
-      <span class="field-error" id="booking-date-error"></span>
-    </div>
-
-    <div class="field">
-      <label for="booking-time">Бажаний час <span aria-hidden="true">*</span></label>
-      <input id="booking-time" name="time" type="time" aria-describedby="booking-time-hint booking-time-error" data-validate required />
-      <span class="field-hint" id="booking-time-hint">Час потребує підтвердження.</span>
-      <span class="field-error" id="booking-time-error"></span>
-    </div>
-
-    <div class="consent-field field-wide">
-      <input id="booking-consent" name="consent" type="checkbox" value="accepted" aria-describedby="booking-consent-error" data-validate required />
-      <label for="booking-consent">Погоджуюся підготувати SMS із введеними контактними даними. Сайт не зберігає їх і не надсилає на сервер.</label>
-      <span class="field-error" id="booking-consent-error"></span>
+      <label for="booking-datetime">Бажані дата й час <span aria-hidden="true">*</span></label>
+      <input id="booking-datetime" name="datetime" type="datetime-local" aria-describedby="booking-datetime-hint booking-datetime-error" data-validate required />
+      <span class="field-hint" id="booking-datetime-hint">Оберіть сьогоднішню або майбутню дату й час.</span>
+      <span class="field-error" id="booking-datetime-error"></span>
     </div>
 
     <div class="privacy-note field-wide">
       <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24"><path d="M12 3 5.5 5.6v5.7c0 4.4 2.7 8.3 6.5 9.7 3.8-1.4 6.5-5.3 6.5-9.7V5.6L12 3Zm0 2.2 4.5 1.8v4.3c0 3.3-1.9 6.3-4.5 7.5-2.6-1.2-4.5-4.2-4.5-7.5V7L12 5.2Z" /></svg>
-      <p><strong>Не додавайте медичні дані.</strong> Для запису достатньо контактів, послуги та бажаного часу.</p>
+      <p><strong>Локальна чернетка.</strong> Дані залишаються на цьому пристрої й не стають видимими для клініки. Не додавайте медичні дані.</p>
     </div>
 
     <div class="form-actions field-wide">
       <button class="submit-button" type="submit">
-        <span data-submit-label>Підготувати SMS</span>
+        <span data-submit-label>Зберегти чернетку</span>
         <span aria-hidden="true">→</span>
       </button>
-      <p>Альтернатива: <a href={`tel:${site.phone}`}>{site.phoneDisplay}</a></p>
+      <p>Після збереження: <strong>зателефонуйте до клініки</strong>, щоб передати запит.</p>
     </div>
 
     <p class="submit-status field-wide" data-submit-status role="status" aria-live="polite"></p>
@@ -85,9 +61,9 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
     if (!(node instanceof HTMLFormElement) || node.dataset.enhanced === 'true') return;
     node.dataset.enhanced = 'true';
     const form = node;
-    type BookingField = HTMLInputElement | HTMLSelectElement;
+    type BookingField = HTMLInputElement;
     const fields = Array.from(form.querySelectorAll<BookingField>('[data-validate]'));
-    const dateField = form.elements.namedItem('date');
+    const datetimeField = form.elements.namedItem('datetime');
     const summary = form.querySelector('[data-error-summary]');
     const errorList = form.querySelector('[data-error-list]');
     const status = form.querySelector('[data-submit-status]');
@@ -95,13 +71,13 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
     const submitLabel = form.querySelector('[data-submit-label]');
     let startedEventSent = false;
     let submitting = false;
+    const KEY = 'likar:appointment_request';
 
-    const today = () => {
+    if (datetimeField instanceof HTMLInputElement) {
       const now = new Date();
       const offset = now.getTimezoneOffset() * 60_000;
-      return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-    };
-    if (dateField instanceof HTMLInputElement) dateField.min = today();
+      datetimeField.min = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    }
 
     const dispatchStarted = () => {
       if (startedEventSent) return;
@@ -110,7 +86,7 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
     };
 
     const errorMessage = (field: BookingField) => {
-      const value = field instanceof HTMLInputElement && field.type === 'checkbox' ? (field.checked ? field.value : '') : field.value.trim();
+      const value = field.value.trim();
       if (field.name === 'name') {
         if (!value) return 'Вкажіть ім’я та прізвище.';
         if (Array.from(value).filter((character) => /\p{L}/u.test(character)).length < 2) return 'Введіть щонайменше дві літери.';
@@ -121,17 +97,11 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
         const digitCount = value.replace(/\D/g, '').length;
         if (digitCount < 10 || digitCount > 15) return 'Введіть номер, що містить від 10 до 15 цифр.';
       }
-      if (field.name === 'service' && !value) return 'Оберіть послугу.';
-      if (field.name === 'date') {
-        if (!value) return 'Оберіть бажану дату.';
-        if (field.validity.badInput) return 'Введіть дату у правильному форматі.';
-        if (value < today()) return 'Оберіть сьогоднішню або майбутню дату.';
+      if (field.name === 'datetime') {
+        if (!value) return 'Оберіть бажані дату й час.';
+        if (field.validity.badInput) return 'Введіть дату й час у правильному форматі.';
+        if (datetimeField instanceof HTMLInputElement && value < datetimeField.min) return 'Оберіть сьогоднішню або майбутню дату й час.';
       }
-      if (field.name === 'time') {
-        if (!value) return 'Оберіть бажаний час.';
-        if (field.validity.badInput) return 'Введіть час у правильному форматі.';
-      }
-      if (field.name === 'consent' && !value) return 'Підтвердьте згоду на підготовку SMS.';
       return '';
     };
 
@@ -152,12 +122,12 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
     form.addEventListener('input', (event) => {
       dispatchStarted();
       const field = event.target;
-      if ((field instanceof HTMLInputElement || field instanceof HTMLSelectElement) && field.matches('[data-validate]') && field.getAttribute('aria-invalid') === 'true') validateField(field);
+      if (field instanceof HTMLInputElement && field.matches('[data-validate]') && field.getAttribute('aria-invalid') === 'true') validateField(field);
     });
     form.addEventListener('change', (event) => {
       dispatchStarted();
       const field = event.target;
-      if ((field instanceof HTMLInputElement || field instanceof HTMLSelectElement) && field.matches('[data-validate]')) validateField(field);
+      if (field instanceof HTMLInputElement && field.matches('[data-validate]')) validateField(field);
     });
 
     form.addEventListener('submit', (event) => {
@@ -183,31 +153,25 @@ const serviceOptions = serviceData.map((service) => service.titleUk);
 
       submitting = true;
       if (submit instanceof HTMLButtonElement) submit.disabled = true;
-      if (submitLabel) submitLabel.textContent = 'Відкриваємо SMS…';
-      if (status) status.textContent = 'Готуємо повідомлення. Перевірте текст перед надсиланням.';
+      if (submitLabel) submitLabel.textContent = 'Зберігаємо…';
+      if (status) status.textContent = 'Зберігаємо локальну чернетку…';
 
       const data = new FormData(form);
-      const dateValue = String(data.get('date'));
-      const formattedDate = new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${dateValue}T00:00:00`));
-      const message = [
-        'Вітаю! Хочу залишити запит на запис у «Лікар Поруч».',
-        `Ім’я: ${String(data.get('name')).trim()}`,
-        `Телефон: ${String(data.get('phone')).trim()}`,
-        `Послуга: ${String(data.get('service'))}`,
-        `Бажані дата й час: ${formattedDate}, ${String(data.get('time'))}`,
-        'Розумію, що дату й час потрібно підтвердити.',
-      ].join('\n');
-      const endpoint = form.dataset.bookingEndpoint || '';
-      const separator = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
-      const smsUrl = `${endpoint}${separator}body=${encodeURIComponent(message)}`;
-      window.dispatchEvent(new CustomEvent('likar:booking_submitted', { detail: { form: 'appointment_request', channel: 'sms' } }));
-      window.location.assign(smsUrl);
-      window.setTimeout(() => {
+      const request = { name: String(data.get('name')).trim(), phone: String(data.get('phone')).trim(), datetime: String(data.get('datetime')) };
+      try {
+        window.localStorage.setItem(KEY, JSON.stringify(request));
+      } catch {
         submitting = false;
         if (submit instanceof HTMLButtonElement) submit.disabled = false;
         if (submitLabel) submitLabel.textContent = 'Спробувати ще раз';
-        if (status) status.textContent = 'Якщо SMS-застосунок не відкрився, спробуйте ще раз або зателефонуйте нам.';
-      }, 1800);
+        if (status) status.textContent = 'Не вдалося зберегти чернетку на цьому пристрої. Дозвольте сховище або зателефонуйте до клініки.';
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('likar:booking_submitted', { detail: { form: 'appointment_request', channel: 'local_draft' } }));
+      if (status) status.textContent = 'Чернетку збережено лише на цьому пристрої. Зателефонуйте до клініки, щоб передати запит.';
+      submitting = false;
+      if (submit instanceof HTMLButtonElement) submit.disabled = false;
+      if (submitLabel) submitLabel.textContent = 'Зберегти ще раз';
     });
   });
 </script>
