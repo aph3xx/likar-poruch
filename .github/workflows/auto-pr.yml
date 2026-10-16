@@ -1,4 +1,4 @@
-name: Auto PR and merge
+name: Open task pull request
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'task/**'
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 concurrency:
@@ -14,11 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  open-and-queue:
+  open:
     if: github.repository == 'aph3xx/likar-poruch'
     runs-on: ubuntu-latest
     steps:
-      - name: Create or reuse the pull request and enable auto-merge
+      - name: Create or reuse the pull request
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -49,7 +49,7 @@ jobs:
 
           This pull request was opened from the Hermes task branch \`$HEAD_BRANCH\`.
 
-          It will be squash-merged automatically only after the required \`build\` check passes and the branch is up to date with \`main\`.
+          This pull request is intentionally not auto-merged. Integration requires an explicit independent reviewer PASS for this exact commit/tree and a merger card whose parent is that review.
 
           Automation run: $RUN_URL
           EOF
@@ -62,5 +62,4 @@ jobs:
               --body-file "$body_file")"
           fi
 
-          gh pr merge "$pr_url" --auto --squash --delete-branch
-          printf 'Auto-merge queued for %s\n' "$pr_url"
+          printf 'Pull request ready for independent review: %s\n' "$pr_url"

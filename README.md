@@ -47,21 +47,21 @@ openspec validate --all --strict
 
 The local Hermes profile also has project-scoped automation hooks. They inject concise Git, OpenSpec, and Kanban state into AI turns and run the project quality gate before an AI session finishes after code changes. Both hooks no-op outside this repository. Inspect them with `hermes hooks list` and `hermes hooks doctor`.
 
-### Automated task pull requests
+### Task pull requests and mandatory integration lane
 
-Pushing a branch named `task/**` starts CI and the `Auto PR and merge` workflow. The workflow creates or reuses a pull request into `main`, then requests a squash auto-merge. GitHub merges only after the protected `build` check passes and the branch is up to date with `main`. The source branch is deleted after a successful merge.
+Pushing a branch named `task/**` starts CI and the `Open task pull request` workflow. The workflow creates or reuses a pull request into `main`, but never queues or performs a merge. A merger card may integrate the exact task commit only after an explicit independent reviewer PASS bound to that commit and tree; the merger card must name that review as its parent. The source branch is deleted only as part of that deliberate merger integration.
 
 Required repository settings:
 
-- Actions workflow permissions use the default read permission, with **Allow GitHub Actions to create and approve pull requests** enabled.
-- Pull-request auto-merge, squash merging, and automatic head-branch deletion are enabled.
+- Actions workflow permissions allow the workflow to create pull requests but do not grant it repository contents write access or merge authority.
+- Pull-request auto-merge is not used for task branches. Squash merging and head-branch deletion remain available to the merger when the mandatory lane has passed.
 - `main` requires a pull request, requires the `build` status check with strict branch updates, enforces protection for administrators, and rejects force pushes and branch deletion.
 
-Automation does not bypass conflicts, failing checks, or branch protection. Non-task branches and pull requests from forks are not auto-merged. Task-branch CI does not deploy; production deployment remains a separate verified operation from clean `main`.
+Automation does not bypass conflicts, failing checks, branch protection, or the reviewer-to-merger lane. Non-task branches and pull requests from forks are not opened by this workflow. Task-branch CI does not deploy or publish; production and release publication remain separate verified operations owned by the merger from clean `main`.
 
 ## Production deployment
 
-Production is the Tailscale-only URL `https://sur.kyiv.ua/likar-poruch/`, served from `/home/sgdt1a/.local/share/likar-poruch-site`. GitHub Pages is not the production target.
+Production is the Tailscale-only URL `https://sur.kyiv.ua/likar-poruch/`, served from `/home/sgdt1a/.local/share/likar-poruch-site`. GitHub Pages is not the production target and is not published automatically by this repository.
 
 Release only a clean `main` commit that already exists at `origin/main`:
 
