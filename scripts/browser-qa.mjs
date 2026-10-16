@@ -61,6 +61,14 @@ try {
     });
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(`${base}/`, { waitUntil: "networkidle" });
+    const manifestResult = await page.locator('link[rel="manifest"]').evaluate(async (link) => {
+      const response = await fetch(link.href);
+      return { status: response.status, contentType: response.headers.get("content-type") || "" };
+    });
+    if (manifestResult.status !== 200)
+      throw new Error(`${viewport.name}: manifest returned ${manifestResult.status}`);
+    if (!/^application\/(manifest\+json|json)(?:;|$)/i.test(manifestResult.contentType))
+      throw new Error(`${viewport.name}: manifest MIME is ${manifestResult.contentType || "missing"}`);
     if (
       await page.evaluate(
         () =>
