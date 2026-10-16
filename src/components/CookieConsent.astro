@@ -41,10 +41,12 @@
     const analytics = document.querySelector('[data-consent-analytics]');
     if (!banner || !dialog || !analytics) return;
 
+    const ALLOWED_ACTIONS = new Set(['accept_all', 'reject_all', 'save_preferences']);
     const read = () => {
       try {
         const value = JSON.parse(localStorage.getItem(KEY) || 'null');
-        if (!value || value.version !== VERSION || Date.now() - value.timestamp > MAX_AGE) return null;
+        const now = Date.now();
+        if (!value || value.version !== VERSION || typeof value.timestamp !== 'number' || !Number.isFinite(value.timestamp) || value.timestamp > now || value.timestamp < now - MAX_AGE || !value.purposes || typeof value.purposes.analytics !== 'boolean' || !ALLOWED_ACTIONS.has(value.action)) return null;
         return value;
       } catch (_) { return null; }
     };

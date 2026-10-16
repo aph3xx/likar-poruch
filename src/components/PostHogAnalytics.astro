@@ -14,7 +14,11 @@
     consentEnabled = false;
     if (!initialized || !posthog) return;
     posthog.opt_out_capturing();
-    posthog.reset();
+    // reset() performs a feature-flags request. Withdrawal must be silent, so
+    // clear the SDK's local identity/session stores without invoking its
+    // networked reset lifecycle.
+    posthog.persistence?.clear();
+    posthog.sessionPersistence?.clear();
   };
 
   const loadPostHog = async () => {
@@ -42,8 +46,8 @@
         respect_dnt: true,
       });
       initialized = true;
-      window.addEventListener('likar:booking_started', () => client.capture('booking_started'));
-      window.addEventListener('likar:booking_submitted', () => client.capture('booking_submitted'));
+      window.addEventListener('likar:booking_started', () => { if (consentEnabled) client.capture('booking_started'); });
+      window.addEventListener('likar:booking_submitted', () => { if (consentEnabled) client.capture('booking_submitted'); });
     } else if (posthog) {
       posthog.opt_in_capturing();
     }
@@ -59,6 +63,8 @@
   // choice may initialize the SDK. Absence or expiry remains denied.
   try {
     const stored = JSON.parse(localStorage.getItem('likar-consent-v1') || 'null');
-    if (stored?.version === '2026-10-16' && stored?.purposes?.analytics === true && Date.now() - stored.timestamp <= 180 * 24 * 60 * 60 * 1000) enableAnalytics();
+    const now = Date.now();
+    const allowedActions = new Set(['accept_all', 'reject_all', 'save_preferences']);
+    if (stored?.version === '2026-10-16' && typeof stored.timestamp === 'number' && Number.isFinite(stored.timestamp) && stored.timestamp <= now && stored.timestamp >= now - 180 * 24 * 60 * 60 * 1000 && stored?.purposes && typeof stored.purposes.analytics === 'boolean' && allowedActions.has(stored.action) && stored.purposes.analytics === true) enableAnalytics();
   } catch (_) { /* optional storage is unavailable; remain denied */ }
 </script>

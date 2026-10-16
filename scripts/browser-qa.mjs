@@ -29,13 +29,24 @@ try{
   await page.close();
  }
  const consentPage=await browser.newPage({viewport:{width:1280,height:800}});
- await consentPage.addInitScript(() => localStorage.removeItem('likar-consent-v1'));
  const consentRequests=[];
  consentPage.on('request',request=>consentRequests.push({url:request.url(),body:request.postData()||''}));
  await consentPage.goto(`${base}/`,{waitUntil:'networkidle'});
+ await consentPage.evaluate(() => localStorage.removeItem('likar-consent-v1'));
+ consentRequests.length=0;
+ await consentPage.reload({waitUntil:'networkidle'});
  const sdkRequestsBefore=consentRequests.filter(({url})=>/\/_astro\/module\.[^/]+\.js|posthog\.com/i.test(url));
  if(sdkRequestsBefore.length)throw new Error(`consent: PostHog SDK/network loaded before consent: ${sdkRequestsBefore.map(({url})=>url).join(', ')}`);
  const expectAnalytics=process.env.QA_EXPECT_ANALYTICS==='1';
+ await consentPage.getByRole('button',{name:'Відхилити необов’язкові'}).first().click();
+ await consentPage.reload({waitUntil:'networkidle'});
+ if(await consentPage.locator('[data-consent-banner]').isVisible())throw new Error('consent: reject choice did not persist');
+ await consentPage.evaluate(() => localStorage.setItem('likar-consent-v1', JSON.stringify({version:'2026-10-16',timestamp:Date.now()+60_000,purposes:{analytics:true},action:'accept_all'})));
+ await consentPage.reload({waitUntil:'networkidle'});
+ if(!(await consentPage.locator('[data-consent-banner]').isVisible()))throw new Error('consent: future-dated state was accepted');
+ await consentPage.evaluate(() => localStorage.setItem('likar-consent-v1', JSON.stringify({version:'2026-10-16',timestamp:Date.now(),purposes:{analytics:true},action:'forged'})));
+ await consentPage.reload({waitUntil:'networkidle'});
+ if(!(await consentPage.locator('[data-consent-banner]').isVisible()))throw new Error('consent: malformed action was accepted');
  await consentPage.getByRole('button',{name:'Дозволити аналітику'}).click();
  if(expectAnalytics){
   await consentPage.waitForTimeout(1500);
@@ -46,7 +57,14 @@ try{
   if(!sdkRequestsAfter.length)throw new Error('consent: PostHog SDK asset did not load after affirmative consent');
   if(!hostRequestsAfter.length)throw new Error('consent: PostHog network request did not occur after affirmative consent');
   if(consentRequests.some(({body})=>/SENTINEL_NAME|SENTINEL_PHONE|SENTINEL_MEDICAL/.test(body)))throw new Error('consent: sentinel form value leaked into analytics payload');
- }
+  const requestsBeforeWithdrawal=consentRequests.length;
+  await consentPage.getByRole('button',{name:'Налаштування приватності'}).click();
+  await consentPage.locator('[data-consent-analytics]').uncheck();
+  await consentPage.getByRole('button',{name:'Зберегти вибір'}).click();
+  await consentPage.evaluate(()=>window.dispatchEvent(new CustomEvent('likar:booking_started')));
+  await consentPage.waitForTimeout(500);
+  if(consentRequests.slice(requestsBeforeWithdrawal).some(({url})=>/posthog\.com/i.test(url)))throw new Error('consent: withdrawal generated a PostHog request');
+}
  await consentPage.close();
  const page=await browser.newPage({viewport:{width:1280,height:800}});
  const retainedRoutes=['/','/posluhy/','/pro-nas/','/kontakty/','/zapys/','/yak-tse-pratsiuie/','/privacy/','/zhurnal/','/zhurnal/yak-obraty-simeinoho-likaria/','/zhurnal/yak-pidhotuvatysia-do-konsultatsii/','/zhurnal/koly-vyklykaty-103/','/zhurnal/dokazova-medytsyna-prostymy-slovamy/'];
