@@ -65,3 +65,21 @@ test('rejects privacy pages that become indexable', () => {
   });
   assert.match(output, /privacy\/index\.html: privacy route must remain noindex, nofollow/);
 });
+
+test('rejects RSS feeds whose channel link escapes the configured base path', () => {
+  const output = runMutation((distRoot) => {
+    const rssPath = path.join(distRoot, 'rss.xml');
+    const xml = fs.readFileSync(rssPath, 'utf8');
+    fs.writeFileSync(rssPath, xml.replace('<link>https://example.test/likar-poruch/</link>', '<link>https://example.test/</link>'));
+  });
+  assert.match(output, /rss\.xml: channel link must match configured origin\/base/);
+});
+
+test('rejects RSS feeds whose item GUID differs from its item link', () => {
+  const output = runMutation((distRoot) => {
+    const rssPath = path.join(distRoot, 'rss.xml');
+    const xml = fs.readFileSync(rssPath, 'utf8');
+    fs.writeFileSync(rssPath, xml.replace(/<guid isPermaLink="true">[^<]+<\/guid>/, '<guid isPermaLink="true">https://example.test/likar-poruch/wrong/</guid>'));
+  });
+  assert.match(output, /rss\.xml: item link and GUID must match/);
+});
