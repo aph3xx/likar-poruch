@@ -48,12 +48,15 @@ function validateHomepageSocialImage() {
   }
   const html = fs.readFileSync(homepage, 'utf8');
   const image = metaContent(html, 'property', 'og:image');
-  let pathname = '';
-  try { pathname = new URL(image, siteOrigin).pathname; } catch { /* reported below */ }
-  if (!approvedSocialImagePaths.has(pathname)) {
+  let imageUrl;
+  try { imageUrl = new URL(image); } catch { /* reported below */ }
+  let configuredOrigin;
+  try { configuredOrigin = new URL(siteOrigin).origin; } catch { /* reported below */ }
+  if (!imageUrl || imageUrl.origin !== configuredOrigin || !approvedSocialImagePaths.has(imageUrl.pathname)) {
     errors.push(`homepage: og:image must use an approved brand asset (received ${image || 'missing'})`);
     return;
   }
+  const pathname = imageUrl.pathname;
   const asset = path.join(root, pathname.slice(`${basePath}/`.length));
   if (!fs.existsSync(asset)) errors.push(`homepage: approved og:image asset is missing ${pathname}`);
 }
