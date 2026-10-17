@@ -18,7 +18,7 @@ Do not add patient, health, contact, or free-text data to PostHog event properti
 
 ## Application integration
 
-The SDK is installed, the component is mounted once in the shared Ukrainian layout, and GitHub Actions passes the two repository variables to both `astro check` and the CI build. No additional source-code integration is required.
+The SDK is installed, the component is mounted once in the single shared Ukrainian `src/layouts/BaseLayout.astro`, and GitHub Actions passes the two repository variables to `astro check` and the CI build for validation. No additional source-code integration is required.
 
 ## Environment variables
 
@@ -31,14 +31,14 @@ Astro exposes variables prefixed with `PUBLIC_` to browser code at build time.
 
 The PostHog project key is designed to be public and will be embedded in the generated JavaScript. It is not a PostHog personal API key and must not be replaced with one. Even though it is public, manage it as deployment configuration rather than hard-coding it in source.
 
-For local development, put the values in an uncommitted `.env` file:
+For local development only, put the values in an uncommitted `.env` file:
 
 ```dotenv
 PUBLIC_POSTHOG_KEY=phc_your_project_key
 PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 ```
 
-## GitHub Actions configuration
+## GitHub Actions validation configuration
 
 In the GitHub repository, open **Settings → Secrets and variables → Actions → Variables** and create:
 
@@ -55,7 +55,19 @@ env:
 
 A GitHub Actions secret is not required for the public project key. If repository policy requires storing it under **Actions secrets**, use `secrets.PUBLIC_POSTHOG_KEY` in the workflow instead of `vars.PUBLIC_POSTHOG_KEY`. Never expose a PostHog personal API key, organization API key, or other private credential through a `PUBLIC_` variable.
 
-Astro substitutes these values during `npm run build`, so changing an Actions variable or secret requires a new deployment.
+These GitHub Actions variables or secrets are CI validation inputs only; they do not configure the private SUR production site. Astro substitutes these values during the CI build, so changing an Actions variable or secret requires a new CI run, not a deployment.
+
+## Private SUR production deployment
+
+Production is the private SUR site. Deploy the exact clean `origin/main` checkout with `npm run deploy:sur`. Configure the production values in the deployment process environment, not in an untracked file in that checkout:
+
+```sh
+export PUBLIC_POSTHOG_KEY='phc_your_project_key'
+export PUBLIC_POSTHOG_HOST='https://eu.i.posthog.com'
+npm run deploy:sur
+```
+
+`PUBLIC_POSTHOG_HOST` may be omitted when the EU default is correct. Before deploying, confirm the checkout is on `main`, matches `origin/main`, and has no uncommitted changes. The site uses one shared Ukrainian `src/layouts/BaseLayout.astro`, so this production build configures PostHog for every page.
 
 ## Dispatching booking events
 
