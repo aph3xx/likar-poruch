@@ -4,6 +4,9 @@ import path from 'node:path';
 const root = path.resolve(process.env.VALIDATE_BUILD_ROOT || 'dist');
 const basePath = '/likar-poruch';
 const siteOrigin = (process.env.PUBLIC_SITE_URL || 'https://sur.kyiv.ua').replace(/\/$/, '');
+const approvedSocialImagePaths = new Set([
+  `${basePath}/brand/logo-horizontal.svg`,
+]);
 const errors = [];
 const files = [];
 
@@ -32,6 +35,33 @@ walk(root);
 const existing = new Set(files.map(routeFor));
 const titles = new Map();
 const descriptions = new Map();
+
+function metaContent(html, attribute, value) {
+  return html.match(new RegExp(`<meta[^>]+${attribute}="${value}"[^>]+content="([^"]*)"`, 'i'))?.[1] || '';
+}
+
+function validateHomepageSocialImage() {
+  const homepage = files.find((file) => routeFor(file) === `${basePath}/`);
+  if (!homepage) {
+    errors.push('homepage: generated page is missing');
+    return;
+  }
+  const html = fs.readFileSync(homepage, 'utf8');
+  const image = metaContent(html, 'property', 'og:image');
+  let imageUrl;
+  try { imageUrl = new URL(image); } catch { /* reported below */ }
+  let configuredOrigin;
+  try { configuredOrigin = new URL(siteOrigin).origin; } catch { /* reported below */ }
+  if (!imageUrl || imageUrl.origin !== configuredOrigin || !approvedSocialImagePaths.has(imageUrl.pathname)) {
+    errors.push(`homepage: og:image must use an approved brand asset (received ${image || 'missing'})`);
+    return;
+  }
+  const pathname = imageUrl.pathname;
+  const asset = path.join(root, pathname.slice(`${basePath}/`.length));
+  if (!fs.existsSync(asset)) errors.push(`homepage: approved og:image asset is missing ${pathname}`);
+}
+
+validateHomepageSocialImage();
 
 for (const file of files) {
   const html = fs.readFileSync(file, 'utf8');
