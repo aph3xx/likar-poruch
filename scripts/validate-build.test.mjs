@@ -66,6 +66,15 @@ test('rejects privacy pages that become indexable', () => {
   assert.match(output, /privacy\/index\.html: privacy route must remain noindex, nofollow/);
 });
 
+test('rejects homepage social images outside the approved brand allowlist', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace(/(<meta property="og:image" content=")[^"]+/, '$1https://example.test/likar-poruch/images/clinic-doctor.webp'));
+  });
+  assert.match(output, /homepage: og:image must use an approved brand asset/);
+});
+
 test('rejects RSS feeds whose channel link escapes the configured base path', () => {
   const output = runMutation((distRoot) => {
     const rssPath = path.join(distRoot, 'rss.xml');
