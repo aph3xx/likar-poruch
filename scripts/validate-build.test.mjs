@@ -75,6 +75,25 @@ test('rejects homepage social images outside the approved brand allowlist', () =
   assert.match(output, /homepage: og:image must use an approved brand asset/);
 });
 
+test('rejects homepage social images from a foreign origin with an approved pathname', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace(/(<meta property="og:image" content=")[^"]+/, '$1https://attacker.invalid/likar-poruch/brand/logo-horizontal.svg'));
+  });
+  assert.match(output, /homepage: og:image must use an approved brand asset/);
+});
+
+test('rejects homepage social images whose approved asset is missing', () => {
+  const output = runMutation((distRoot) => {
+    const indexPath = path.join(distRoot, 'index.html');
+    const html = fs.readFileSync(indexPath, 'utf8');
+    fs.writeFileSync(indexPath, html.replace(/(<meta property="og:image" content=")[^"]+/, '$1https://example.test/likar-poruch/brand/logo-horizontal.svg'));
+    fs.rmSync(path.join(distRoot, 'brand', 'logo-horizontal.svg'));
+  });
+  assert.match(output, /homepage: approved og:image asset is missing/);
+});
+
 test('rejects RSS feeds whose channel link escapes the configured base path', () => {
   const output = runMutation((distRoot) => {
     const rssPath = path.join(distRoot, 'rss.xml');
