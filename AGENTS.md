@@ -31,6 +31,17 @@ A code or design task is not complete merely because it passes in a worktree. Al
 
 If any item is missing, report the task as incomplete or blocked. Never say “done,” “deployed,” or “implemented” based only on a staged diff, local build, preview server, screenshot, or frozen worktree snapshot.
 
+## Required release-agent workflow
+
+- Every production change must follow `builder` implementation → independent `reviewer` PASS → `merger` integration/deployment → independent live verification when applicable.
+- The `merger` Hermes profile is the only automated role allowed to merge into or push `main`, publish a release, or deploy production.
+- Builders may commit and push task branches only. They must not merge or push protected/default/release branches and must not deploy production.
+- Reviewers are read-only and must not merge, push, publish, deploy, or repair the candidate they review.
+- Every merger card must have the exact independent review card as an explicit parent. A completed review is sufficient only when its result contains an explicit PASS for the exact candidate commit and tree.
+- A merger must independently re-check the approved commit/tree, clean release checkout, branch/upstream state, release gates, remote SHA, deployed commit, and production behavior.
+- If review is missing, failed, stale, or identifies another snapshot, the merger must not act. A failed completed review must block the merger card as `needs_input`, not `dependency`, to prevent automatic retry loops.
+- Orchestrators must assign integration, merge, publication, release, and deployment cards to `merger`; do not route them to `builder`, `reviewer`, `default`, or `orchestrator`.
+
 ## Worktree and Git safety
 
 - Use one isolated Git worktree and one branch per implementation task.

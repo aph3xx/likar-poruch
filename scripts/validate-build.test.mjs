@@ -17,7 +17,7 @@ function runMutation(mutate) {
   try {
     execFileSync(process.execPath, [validator], {
       cwd: projectRoot,
-      env: { ...process.env, VALIDATE_BUILD_ROOT: distRoot, PUBLIC_SITE_URL: 'https://sur.kyiv.ua' },
+      env: { ...process.env, VALIDATE_BUILD_ROOT: distRoot, PUBLIC_SITE_URL: 'https://example.test' },
       encoding: 'utf8',
       stdio: 'pipe'
     });
@@ -52,9 +52,9 @@ test('rejects same-origin absolute links that bypass the configured base', () =>
   const output = runMutation((distRoot) => {
     const indexPath = path.join(distRoot, 'index.html');
     const html = fs.readFileSync(indexPath, 'utf8');
-    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="https://sur.kyiv.ua/kontakty/">Контакти</a></body>'));
+    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="https://example.test/kontakty/">Контакти</a></body>'));
   });
-  assert.match(output, /index\.html: internal link escapes configured base https:\/\/sur\.kyiv\.ua\/kontakty\//);
+  assert.match(output, /index\.html: internal link escapes configured base https:\/\/example\.test\/kontakty\//);
 });
 
 test('rejects privacy pages that become indexable', () => {
@@ -64,4 +64,22 @@ test('rejects privacy pages that become indexable', () => {
     fs.writeFileSync(privacyPath, html.replace('noindex, nofollow', 'index, follow'));
   });
   assert.match(output, /privacy\/index\.html: privacy route must remain noindex, nofollow/);
+});
+
+test('rejects RSS feeds whose channel link escapes the configured base path', () => {
+  const output = runMutation((distRoot) => {
+    const rssPath = path.join(distRoot, 'rss.xml');
+    const xml = fs.readFileSync(rssPath, 'utf8');
+    fs.writeFileSync(rssPath, xml.replace('<link>https://example.test/likar-poruch/</link>', '<link>https://example.test/</link>'));
+  });
+  assert.match(output, /rss\.xml: channel link must match configured origin\/base/);
+});
+
+test('rejects RSS feeds whose item GUID differs from its item link', () => {
+  const output = runMutation((distRoot) => {
+    const rssPath = path.join(distRoot, 'rss.xml');
+    const xml = fs.readFileSync(rssPath, 'utf8');
+    fs.writeFileSync(rssPath, xml.replace(/<guid isPermaLink="true">[^<]+<\/guid>/, '<guid isPermaLink="true">https://example.test/likar-poruch/wrong/</guid>'));
+  });
+  assert.match(output, /rss\.xml: item link and GUID must match/);
 });
