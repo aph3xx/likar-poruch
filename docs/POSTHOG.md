@@ -38,7 +38,7 @@ PUBLIC_POSTHOG_KEY=phc_your_project_key
 PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 ```
 
-## GitHub Actions configuration
+## GitHub Actions validation configuration
 
 In the GitHub repository, open **Settings → Secrets and variables → Actions → Variables** and create:
 
@@ -55,7 +55,19 @@ env:
 
 A GitHub Actions secret is not required for the public project key. If repository policy requires storing it under **Actions secrets**, use `secrets.PUBLIC_POSTHOG_KEY` in the workflow instead of `vars.PUBLIC_POSTHOG_KEY`. Never expose a PostHog personal API key, organization API key, or other private credential through a `PUBLIC_` variable.
 
-Astro substitutes these values during `npm run build`, so changing an Actions variable or secret requires a new deployment.
+These GitHub Actions variables or secrets are for CI validation only; they do not configure the private SUR deployment. Astro substitutes values during `npm run build`, so changing an Actions variable or secret requires a new CI run.
+
+## Private SUR production deployment
+
+Production is the private SUR site. Deploy the exact clean `origin/main` checkout with `npm run deploy:sur`. Configure the production values in the deployment process environment, not in an untracked file in that checkout:
+
+```sh
+export PUBLIC_POSTHOG_KEY='phc_your_project_key'
+export PUBLIC_POSTHOG_HOST='https://eu.i.posthog.com'
+npm run deploy:sur
+```
+
+`PUBLIC_POSTHOG_HOST` may be omitted when the EU default is correct. Before deploying, confirm the checkout is on `main`, matches `origin/main`, and has no uncommitted changes. The site uses one shared Ukrainian `src/layouts/BaseLayout.astro`, so this production build configures PostHog for every page.
 
 ## Dispatching booking events
 
