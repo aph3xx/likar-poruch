@@ -18,7 +18,7 @@ Do not add patient, health, contact, or free-text data to PostHog event properti
 
 ## Application integration
 
-The SDK is installed, the component is mounted once in the shared Ukrainian layout, and GitHub Actions passes the two repository variables to both `astro check` and the production build. No additional source-code integration is required.
+The SDK is installed and the component is mounted once in the shared Ukrainian layout. No additional source-code integration is required. GitHub Actions validates the configured values during CI, while the production artifact is built outside GitHub Actions by `npm run deploy:sur` from a clean `main` checkout.
 
 ## Environment variables
 
@@ -38,24 +38,22 @@ PUBLIC_POSTHOG_KEY=phc_your_project_key
 PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 ```
 
-## GitHub Actions configuration
+## Production deployment configuration
 
-In the GitHub repository, open **Settings → Secrets and variables → Actions → Variables** and create:
+Before deploying, put the values in the uncommitted `.env` file used by the clean `main` checkout:
 
 - `PUBLIC_POSTHOG_KEY` — required for analytics;
 - `PUBLIC_POSTHOG_HOST` — optional because the component has the EU default.
 
-The deployment workflow must pass repository variables to the Astro build step or job:
+Run the production build and deployment with:
 
-```yaml
-env:
-  PUBLIC_POSTHOG_KEY: ${{ vars.PUBLIC_POSTHOG_KEY }}
-  PUBLIC_POSTHOG_HOST: ${{ vars.PUBLIC_POSTHOG_HOST }}
+```sh
+npm run deploy:sur
 ```
 
-A GitHub Actions secret is not required for the public project key. If repository policy requires storing it under **Actions secrets**, use `secrets.PUBLIC_POSTHOG_KEY` in the workflow instead of `vars.PUBLIC_POSTHOG_KEY`. Never expose a PostHog personal API key, organization API key, or other private credential through a `PUBLIC_` variable.
+The retained GitHub Actions workflow may also read repository variables for CI validation, but it does not publish the production site. A GitHub Actions secret is not required for the public project key. Never expose a PostHog personal API key, organization API key, or other private credential through a `PUBLIC_` variable.
 
-Astro substitutes these values during `npm run build`, so changing an Actions variable or secret requires a new deployment.
+Astro substitutes these values during the build, so changing the `.env` values requires a new deployment.
 
 ## Dispatching booking events
 
