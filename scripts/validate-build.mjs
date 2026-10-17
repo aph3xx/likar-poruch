@@ -74,7 +74,7 @@ for (const file of files) {
       errors.push(`${rel}: internal link escapes configured base ${originalHref}`);
       continue;
     }
-    if (/\.(svg|webp|png|jpg|xml|webmanifest|txt|css|js|ico)$/i.test(href)) continue;
+    if (/\.(svg|webp|png|jpg|xml|json|webmanifest|txt|css|js|ico)$/i.test(href)) continue;
     if (href === '/') href = `${basePath}/`;
     else if (!href.startsWith(`${basePath}/`)) href = `${basePath}${href}`;
     if (!href.endsWith('/')) href += '/';
@@ -108,6 +108,23 @@ for (const url of sitemapUrls) {
 const robots = fs.readFileSync(path.join(root, 'robots.txt'), 'utf8');
 if (!robots.includes(`Sitemap: ${siteOrigin}${basePath}/sitemap-index.xml`)) errors.push('robots.txt: sitemap URL does not match configured origin/base');
 if (robots.includes('/ru/')) errors.push('robots.txt: contains retired Russian URL');
+
+const rssPath = path.join(root, 'rss.xml');
+if (!fs.existsSync(rssPath)) errors.push('rss.xml: generated feed is missing');
+else {
+  const rss = fs.readFileSync(rssPath, 'utf8');
+  const expectedFeedBase = `${siteOrigin}${basePath}/`;
+  const channelLink = rss.match(/<channel>[\s\S]*?<link>([^<]+)<\/link>/)?.[1] || '';
+  if (channelLink !== expectedFeedBase) errors.push('rss.xml: channel link must match configured origin/base');
+  const items = [...rss.matchAll(/<item>[\s\S]*?<link>([^<]+)<\/link>[\s\S]*?<guid[^>]*>([^<]+)<\/guid>[\s\S]*?<\/item>/g)];
+  if (!items.length) errors.push('rss.xml: contains no items');
+  for (const [, link, guid] of items) {
+    if (!link.startsWith(expectedFeedBase) || !guid.startsWith(expectedFeedBase)) errors.push('rss.xml: item URLs must remain under configured origin/base');
+    if (link !== guid) errors.push('rss.xml: item link and GUID must match');
+  }
+}
+
+if (!fs.existsSync(path.join(root, 'manifest.json'))) errors.push('manifest.json: generated manifest is missing');
 
 if (errors.length) {
   console.error(errors.join('\n'));
