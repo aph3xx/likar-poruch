@@ -18,7 +18,7 @@ Do not add patient, health, contact, or free-text data to PostHog event properti
 
 ## Application integration
 
-The SDK is installed, the component is mounted once in the shared Ukrainian layout, and GitHub Actions passes the two repository variables to both `astro check` and the production build. No additional source-code integration is required.
+The SDK is installed, the component is mounted once in the shared Ukrainian layout, and GitHub Actions passes the two repository variables to both `astro check` and the CI build. No additional source-code integration is required.
 
 ## Environment variables
 
@@ -45,7 +45,7 @@ In the GitHub repository, open **Settings → Secrets and variables → Actions 
 - `PUBLIC_POSTHOG_KEY` — required for analytics;
 - `PUBLIC_POSTHOG_HOST` — optional because the component has the EU default.
 
-The deployment workflow must pass repository variables to the Astro build step or job:
+The CI workflow/build step must pass repository variables to the Astro build step or job:
 
 ```yaml
 env:
