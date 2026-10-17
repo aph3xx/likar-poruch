@@ -68,6 +68,77 @@ const assertNoLocalDraftDeliveryPromises = (copy, context) => {
       throw new Error(`${context}: local-draft form promises clinic delivery: ${banned}`);
   }
 };
+const isFirstPartyResource = (url, pageUrl) => {
+  try {
+    return new URL(url).origin === new URL(pageUrl).origin;
+  } catch {
+    return false;
+  }
+};
+const navigateAndAssertResourcesOnce = async (page, url, options = {}) => {
+  page.setDefaultTimeout(30_000);
+  page.setDefaultNavigationTimeout(10_000);
+  const pending = new Set();
+  const trackRequest = (request) => {
+    if (isFirstPartyResource(request.url(), url)) pending.add(request);
+  };
+  const finishRequest = (request) => pending.delete(request);
+  page.on("request", trackRequest);
+  page.on("requestfinished", finishRequest);
+  page.on("requestfailed", finishRequest);
+  try {
+    const response = options.reload
+      ? await page.reload({ waitUntil: "commit" })
+      : await page.goto(url, { waitUntil: "commit" });
+    if (!response?.ok()) throw new Error(`${url}: ${response?.status()}`);
+    await page.locator("body").waitFor({ state: "attached" });
+    await page.waitForFunction(
+      () => [...document.images].every((image) => image.complete),
+    );
+    const deadline = Date.now() + 10_000;
+    while (pending.size && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    if (pending.size)
+      throw new Error(
+        `${url}: first-party resources did not complete: ${[...pending]
+          .map((request) => request.url())
+          .join(", ")}`,
+      );
+    return response;
+  } finally {
+    page.off("request", trackRequest);
+    page.off("requestfinished", finishRequest);
+    page.off("requestfailed", finishRequest);
+  }
+};
+const navigateAndAssertResources = async (page, url, options = {}) => {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await navigateAndAssertResourcesOnce(page, url, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  throw lastError;
+};
+const assertManifest = async (page, pageName) => {
+  const manifestResult = await page.locator('link[rel="manifest"]').evaluate(async (link) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const response = await fetch(link.href, { signal: controller.signal });
+      return { status: response.status, contentType: response.headers.get("content-type") || "" };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+  if (manifestResult.status !== 200)
+    throw new Error(`${pageName}: manifest returned ${manifestResult.status}`);
+  if (!/^application\/(manifest\+json|json)(?:;|$)/i.test(manifestResult.contentType))
+    throw new Error(`${pageName}: manifest MIME is ${manifestResult.contentType || "missing"}`);
+};
 try {
   for (const viewport of viewports) {
     const page = await browser.newPage({ viewport });
@@ -76,15 +147,8 @@ try {
       if (m.type() === "error") errors.push(m.text());
     });
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(`${base}/`, { waitUntil: "networkidle" });
-    const manifestResult = await page.locator('link[rel="manifest"]').evaluate(async (link) => {
-      const response = await fetch(link.href);
-      return { status: response.status, contentType: response.headers.get("content-type") || "" };
-    });
-    if (manifestResult.status !== 200)
-      throw new Error(`${viewport.name}: manifest returned ${manifestResult.status}`);
-    if (!/^application\/(manifest\+json|json)(?:;|$)/i.test(manifestResult.contentType))
-      throw new Error(`${viewport.name}: manifest MIME is ${manifestResult.contentType || "missing"}`);
+    await navigateAndAssertResources(page, `${base}/`);
+    await assertManifest(page, viewport.name);
     if (
       await page.evaluate(
         () =>
@@ -162,10 +226,10 @@ try {
       body: request.postData() || "",
     }),
   );
-  await consentPage.goto(`${base}/`, { waitUntil: "networkidle" });
+  await navigateAndAssertResources(consentPage, `${base}/`);
   await consentPage.evaluate(() => localStorage.removeItem("likar-consent-v1"));
   consentRequests.length = 0;
-  await consentPage.reload({ waitUntil: "networkidle" });
+  await navigateAndAssertResources(consentPage, `${base}/`, { reload: true });
   const sdkRequestsBefore = consentRequests.filter(({ url }) =>
     /\/_astro\/module\.[^/]+\.js|posthog\.com/i.test(url),
   );
@@ -178,7 +242,7 @@ try {
     .getByRole("button", { name: "Відхилити необов’язкові" })
     .first()
     .click();
-  await consentPage.reload({ waitUntil: "networkidle" });
+  await navigateAndAssertResources(consentPage, `${base}/`, { reload: true });
   await consentPage
     .locator("[data-consent-banner]")
     .waitFor({ state: "hidden" });
@@ -193,7 +257,7 @@ try {
       }),
     ),
   );
-  await consentPage.reload({ waitUntil: "networkidle" });
+  await navigateAndAssertResources(consentPage, `${base}/`, { reload: true });
   await consentPage
     .locator("[data-consent-banner]")
     .waitFor({ state: "visible" });
@@ -208,7 +272,7 @@ try {
       }),
     ),
   );
-  await consentPage.reload({ waitUntil: "networkidle" });
+  await navigateAndAssertResources(consentPage, `${base}/`, { reload: true });
   await consentPage
     .locator("[data-consent-banner]")
     .waitFor({ state: "visible" });
@@ -289,11 +353,7 @@ try {
   for (const width of targetWidths) {
     await page.setViewportSize({ width, height: width < 640 ? 800 : 900 });
     for (const route of retainedRoutes) {
-      const response = await page.goto(`${base}${route}`, {
-        waitUntil: "networkidle",
-      });
-      if (!response?.ok())
-        throw new Error(`${width}px ${route}: ${response?.status()}`);
+      await navigateAndAssertResources(page, `${base}${route}`);
       if (
         await page.evaluate(
           () =>
@@ -309,7 +369,7 @@ try {
         );
     }
   }
-  await page.goto(`${base}/zapys/`, { waitUntil: "networkidle" });
+  await navigateAndAssertResources(page, `${base}/zapys/`);
   const booking = page.locator("[data-appointment-form]");
   if (!(await booking.isVisible())) throw new Error("booking form missing");
   const fields = booking.locator("[data-validate]");
@@ -375,7 +435,7 @@ try {
     )
   )
     throw new Error("storage-denied path wrote a draft");
-  await page.goto(`${base}/`, { waitUntil: "networkidle" });
+  await navigateAndAssertResources(page, `${base}/`);
   if (await page.locator('link[rel="alternate"][hreflang="ru"]').count())
     throw new Error("retired Russian hreflang present");
   const schemas = await page
@@ -395,7 +455,7 @@ try {
       throw new Error(`booking contract contains stale claim: ${stale}`);
   if (!homepageText.includes("локальн") || !homepageText.includes("зателефонуйте до клініки"))
     throw new Error("local-draft phone handoff copy missing");
-  await page.goto(`${base}/kontakty/`, { waitUntil: "networkidle" });
+  await navigateAndAssertResources(page, `${base}/kontakty/`);
   const contactsClinic = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
     nodes.flatMap((n) => {
       const x = JSON.parse(n.textContent || "{}");
@@ -407,7 +467,7 @@ try {
   for (const field of ["name", "url", "telephone"])
     if (homepageClinic[field] !== contactsClinic[field])
       throw new Error(`MedicalClinic ${field} mismatch`);
-  await page.goto(`${base}/`, { waitUntil: "networkidle" });
+  await navigateAndAssertResources(page, `${base}/`);
   if (schemas.some((x) => ["ItemList", "ProfilePage"].includes(x["@type"])))
     throw new Error("stale aggregator schema found");
   await page.close();
