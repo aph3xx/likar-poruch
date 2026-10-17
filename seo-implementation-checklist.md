@@ -13,7 +13,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Applicability: **Applicable; already satisfied in inspected source/build**, but retain as a release gate. The parent report described four Russian routes, while the current checkout has no `src/pages/ru`, `RussianLayout`, or `site-ru` file and the checked `dist/sitemap-0.xml` has no `/ru/` URLs. This discrepancy must be resolved against the intended release commit before implementation.
 
 2. **Decide legacy `/ru/*` handling using evidence, not assumption.**
-   - Affected: host/GitHub Pages redirect configuration or static route stubs; Search Console and backlink/indexation evidence.
+   - Affected: private SUR host redirect configuration or static route stubs; Search Console and backlink/indexation evidence.
    - Expected behavior: if legacy Russian URLs have meaningful indexation/backlinks, map each one-to-one to the Ukrainian equivalent with a 301; otherwise return an intentional 404/410 or leave retired, according to the owner decision. Redirects must not be listed in the sitemap.
    - Acceptance: each legacy path has a recorded disposition and live HTTP verification; no blanket redirect; final URLs are Ukrainian and canonical.
    - Applicability: **Conditional/blocked** until historical URL/indexation/backlink evidence and hosting redirect capability are checked. Do not add Russian pages merely to satisfy the old report.
@@ -22,7 +22,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Affected: `astro.config.mjs:5`, `scripts/validate-build.mjs:5`, deployment environment (`PUBLIC_SITE_URL`).
    - Expected behavior: canonical, Open Graph, JSON-LD, image, robots, RSS, and sitemap URLs use the deployed origin plus `/likar-poruch` base; no fallback host leaks into production.
    - Acceptance: build with the real `PUBLIC_SITE_URL`; inspect representative HTML and generated sitemap/robots; all absolute URLs share the expected origin. Add a CI/build assertion if the deployment contract requires `PUBLIC_SITE_URL`.
-   - Applicability: **Applicable; incomplete**. Current fallback is `https://aph3xx.github.io` in both config and validation, and `src/pages/robots.txt.ts` derives its URL from Astro `site`. A custom-domain deployment requires explicit evidence/configuration.
+   - Applicability: **Applicable; implementation satisfied**. The default Astro origin and validator fallback are the confirmed private SUR origin; deployment still passes `PUBLIC_SITE_URL=https://sur.kyiv.ua` explicitly.
 
 4. **Keep static prerendering and crawlable HTML.**
    - Affected: `astro.config.mjs:8`, all `src/pages/*.astro`, `src/layouts/BaseLayout.astro`.
@@ -40,7 +40,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Affected: `src/pages/robots.txt.ts`, generated `dist/robots.txt`, deployment path.
    - Expected behavior: `User-agent: * / Allow: /` remains permissive for public pages and `Sitemap:` points to the deployed `/likar-poruch/sitemap-index.xml` (or the exact custom-domain path).
    - Acceptance: live `robots.txt` returns 200 text/plain, contains the exact deployed sitemap URL, does not block target routes, and does not expose private content. Confirm `sitemap-index.xml` is live.
-   - Applicability: **Applicable; source/build pass, live verification pending**. Current artifact points to `https://aph3xx.github.io/likar-poruch/sitemap-index.xml`.
+   - Applicability: **Applicable; source/build pass, live verification pending**. The production artifact points to the private SUR sitemap at `https://sur.kyiv.ua/likar-poruch/sitemap-index.xml`.
 
 7. **Enforce one canonical, title, description, language, and H1 per indexable page.**
    - Affected: `src/layouts/BaseLayout.astro:21-34`, route frontmatter/props, `scripts/validate-build.mjs:16-26`.
@@ -159,7 +159,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
 ## Unresolved decisions/evidence required
 
 - Confirm whether the parent report was generated from a different commit/worktree: it claims `src/pages/ru/*`, `RussianLayout.astro`, and `src/data/site-ru.json`, but those files and `/ru/` sitemap URLs are absent in the inspected checkout.
-- Confirm production origin and whether the site is GitHub Pages at `aph3xx.github.io/likar-poruch` or a custom domain; this determines `PUBLIC_SITE_URL`, robots, canonical, sitemap, and redirect implementation.
+- Production hosting is resolved: GitHub Pages is not used; the private SUR host at `https://sur.kyiv.ua/likar-poruch/` determines `PUBLIC_SITE_URL`, robots, canonical, sitemap, and redirect implementation. Live-host verification remains a separate release gate.
 - Obtain legacy `/ru/*` traffic/backlink/indexation evidence before choosing 301 versus 404/410.
 - Verify the clinic address, phone, specialties, `MedicalClinic` identity, editorial reviewer, and any social profiles before publishing corresponding structured-data claims.
 - Obtain live-host access/URLs for HTTP, Search Console, Rich Results, schema.org, PageSpeed, and Core Web Vitals verification.

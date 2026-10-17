@@ -17,7 +17,7 @@ function runMutation(mutate) {
   try {
     execFileSync(process.execPath, [validator], {
       cwd: projectRoot,
-      env: { ...process.env, VALIDATE_BUILD_ROOT: distRoot, PUBLIC_SITE_URL: 'https://aph3xx.github.io' },
+      env: { ...process.env, VALIDATE_BUILD_ROOT: distRoot, PUBLIC_SITE_URL: 'https://sur.kyiv.ua' },
       encoding: 'utf8',
       stdio: 'pipe'
     });
@@ -52,9 +52,9 @@ test('rejects same-origin absolute links that bypass the configured base', () =>
   const output = runMutation((distRoot) => {
     const indexPath = path.join(distRoot, 'index.html');
     const html = fs.readFileSync(indexPath, 'utf8');
-    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="https://aph3xx.github.io/kontakty/">Контакти</a></body>'));
+    fs.writeFileSync(indexPath, html.replace('</body>', '<a href="https://sur.kyiv.ua/kontakty/">Контакти</a></body>'));
   });
-  assert.match(output, /index\.html: internal link escapes configured base https:\/\/aph3xx\.github\.io\/kontakty\//);
+  assert.match(output, /index\.html: internal link escapes configured base https:\/\/sur\.kyiv\.ua\/kontakty\//);
 });
 
 test('rejects privacy pages that become indexable', () => {

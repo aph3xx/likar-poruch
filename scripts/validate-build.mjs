@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const root = path.resolve(process.env.VALIDATE_BUILD_ROOT || 'dist');
 const basePath = '/likar-poruch';
-const siteOrigin = (process.env.PUBLIC_SITE_URL || 'https://aph3xx.github.io').replace(/\/$/, '');
+const siteOrigin = (process.env.PUBLIC_SITE_URL || 'https://sur.kyiv.ua').replace(/\/$/, '');
 const errors = [];
 const files = [];
 
