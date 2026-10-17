@@ -13,7 +13,7 @@ Important evidence boundary: the parent report did not have live HTTP/browser ac
    - Applicability: **Applicable; already satisfied in the final source/build**, but retain as a release gate. The parent report described four Russian routes, while the final tree has no `src/pages/ru`, `RussianLayout`, or `site-ru` file and the generated `dist/sitemap-0.xml` has no `/ru/` URLs. The earlier report described a different tree; the final implementation/report is authoritative for current state.
 
 2. **Decide legacy `/ru/*` handling using evidence, not assumption.**
-   - Affected: hosting redirect configuration or static route stubs; Search Console and backlink/indexation evidence.
+   - Affected: private SUR host redirect configuration or static route stubs; Search Console and backlink/indexation evidence.
    - Expected behavior: if legacy Russian URLs have meaningful indexation/backlinks, map each one-to-one to the Ukrainian equivalent with a 301; otherwise return an intentional 404/410 or leave retired, according to the owner decision. Redirects must not be listed in the sitemap.
    - Acceptance: each legacy path has a recorded disposition and live HTTP verification; no blanket redirect; final URLs are Ukrainian and canonical.
    - Applicability: **Conditional/blocked** until historical URL/indexation/backlink evidence and hosting redirect capability are checked. Do not add Russian pages merely to satisfy the old report.
