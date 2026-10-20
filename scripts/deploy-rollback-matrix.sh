@@ -67,6 +67,7 @@ assert_topology() {
   [[ -d "$BACKEND_ENV_DIR" && -f "$BACKEND_ENV_FILE" && -f "$BACKEND_CADDYFILE" ]] || return 1
   if [[ "$mode" == upgrade ]]; then
     [[ -d "$BACKEND_INSTALL_DIR" && -d "$BACKEND_STATE_DIR" && -d "$BACKEND_SYSTEMD_DIR" && -f "$BACKEND_UNIT_PATH" ]] || return 1
+    [[ ! -e "$BACKEND_SYSTEMD_WANTS_DIR" ]] || return 1
   else
     [[ ! -e "$BACKEND_INSTALL_DIR" && ! -e "$BACKEND_STATE_DIR" && ! -e "$BACKEND_SYSTEMD_DIR" && ! -e "$BACKEND_UNIT_PATH" ]] || return 1
   fi
@@ -88,7 +89,13 @@ run_case() {
   printf 'old unit\n' >"$BACKEND_SNAPSHOT/unit"
   printf 'old caddy\n' >"$BACKEND_SNAPSHOT/Caddyfile"
   printf 'old env\n' >"$BACKEND_SNAPSHOT/environment"
+  # Model the installer having changed every restorable byte. Keeping the
+  # post-install values distinct from the snapshot makes each cmp assertion
+  # independently meaningful and catches a no-op restore mutant.
+  printf 'new caddy\n' >"$BACKEND_CADDYFILE"
+  printf 'new env\n' >"$BACKEND_ENV_DIR/environment"
   if [[ "$mode" == upgrade ]]; then
+    printf 'new backend\n' >"$BACKEND_INSTALL_DIR/booking_service.py"
     printf 'new unit\n' >"$BACKEND_UNIT_PATH"
     printf 'active\n' >"$STATE/active"
   elif [[ "$mode" == first-install ]]; then
@@ -140,6 +147,8 @@ run_case() {
     ! grep -q '^disable$' "$SYSTEMCTL_LOG"
     cmp -s "$BACKEND_ENV_FILE" "$BACKEND_SNAPSHOT/environment"
     cmp -s "$BACKEND_CADDYFILE" "$BACKEND_SNAPSHOT/Caddyfile"
+    assert_equal "$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)" not-found
+    assert_equal "$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)" not-found
     assert_topology first-install-absent
   fi
 }
