@@ -57,16 +57,21 @@ run_case() {
   rm -rf "$HOME_DIR/.local/share/likar-poruch-booking" "$SYSTEMD_DIR" "$HOME_DIR/.config/likar-poruch-booking" "$STATE"
   mkdir -p "$STATE" "$HOME_DIR/.config/likar-poruch-booking"
   cp "$TMP/original-env" "$BOOKING_ENV_FILE"
-  printf 'original-caddy\n' >"$CADDYFILE"
+  printf 'site {\n\thandle_path /likar-poruch/* {\n\t\tfile_server\n\t}\n}\n' >"$CADDYFILE"
   : >"$STATE/active"; printf '%s\n' "$state" >"$STATE/active"
   [[ "$state" == not-found ]] && touch "$STATE/not-found"
   if [[ "$mode" == upgrade ]]; then
     mkdir -p "$BOOKING_USER_HOME/.local/share/likar-poruch-booking/state" "$SYSTEMD_DIR"
     printf 'original-backend\n' >"$BOOKING_USER_HOME/.local/share/likar-poruch-booking/booking_service.py"
     printf 'original-unit\n' >"$SYSTEMD_DIR/likar-poruch-booking.service"
-    printf 'enabled\n' >"$STATE/enabled"
+    if [[ "$phase" == disable ]]; then
+      printf 'disabled\n' >"$STATE/enabled"
+    else
+      printf 'enabled\n' >"$STATE/enabled"
+    fi
   else
     rm -f "$STATE/active" "$STATE/enabled"
+    [[ "$phase" == disable ]] && printf 'disabled\n' >"$STATE/enabled"
   fi
   local before_caddy before_backend before_unit before_env
   before_caddy=$(sha256sum "$CADDYFILE" | cut -d' ' -f1)
@@ -74,10 +79,16 @@ run_case() {
   before_unit=$([[ -f "$SYSTEMD_DIR/likar-poruch-booking.service" ]] && sha256sum "$SYSTEMD_DIR/likar-poruch-booking.service" | cut -d' ' -f1 || printf absent)
   before_env=$(sha256sum "$BOOKING_ENV_FILE" | cut -d' ' -f1)
   set +e
-  BOOKING_INSTALL_FAIL_PHASE="$phase" bash "$INSTALL" "$ROOT" >/dev/null 2>&1
+  local log="$TMP/install-${phase}-${mode}.log"
+  BOOKING_INSTALL_FAIL_PHASE="$phase" bash "$INSTALL" "$ROOT" >"$log" 2>&1
   local rc=$?
   set -e
   [[ "$rc" -ne 0 ]] || { printf 'phase %s unexpectedly succeeded\n' "$phase" >&2; return 1; }
+  grep -Fq "injected failure at $phase" "$log" || {
+    printf 'phase %s was not reached (installer failed earlier)\n' "$phase" >&2
+    cat "$log" >&2
+    return 1
+  }
   [[ $(sha256sum "$CADDYFILE" | cut -d' ' -f1) == "$before_caddy" ]]
   [[ $(sha256sum "$BOOKING_ENV_FILE" | cut -d' ' -f1) == "$before_env" ]]
   [[ $([[ -f "$BOOKING_USER_HOME/.local/share/likar-poruch-booking/booking_service.py" ]] && sha256sum "$BOOKING_USER_HOME/.local/share/likar-poruch-booking/booking_service.py" | cut -d' ' -f1 || printf absent) == "$before_backend" ]]
@@ -91,12 +102,17 @@ run_case() {
 
 # Every injection phase is exercised in both disposable first-install and
 # upgrade paths; service probes cover active, inactive, and not-found states.
-for phase in backend-copy backend-promote unit-promote caddy-write caddy-validate daemon-reload start enable health gateway-reload; do
+for phase in backend-copy backend-promote unit-promote caddy-write caddy-validate daemon-reload start enable disable health gateway-reload; do
   state=inactive; [[ "$phase" == enable ]] && state=inactive
   run_case "$state" "$phase" first-install
-  run_case "$state" "$phase" upgrade
+  if [[ "$phase" == disable ]]; then
+    # An existing but disabled unit exercises the installer's disable branch.
+    run_case "$state" "$phase" upgrade
+  else
+    run_case "$state" "$phase" upgrade
+  fi
 done
 run_case active restart upgrade
-run_case not-found start first-install
+run_case not-found backend-copy first-install
 
 printf 'booking deployment matrix passed: executed installer rollback across first-install/upgrade, active/inactive/not-found, exact backend/unit/env/Caddy bytes, directories, and service state\n'

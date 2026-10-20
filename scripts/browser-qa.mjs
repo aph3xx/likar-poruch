@@ -391,17 +391,11 @@ try {
         );
     }
   }
-  const requiredRouteBodies = [
-    ["/", "Здоров’я ближче"],
-    ["/kontakty/", "Збережіть локальну чернетку"],
-    ["/privacy/", "Форма запису"],
-    ["/zapys/", "Чернетка залишиться"],
-  ];
-  for (const [route, requiredText] of requiredRouteBodies) {
+  const staleCopyRoutes = ["/", "/kontakty/", "/privacy/", "/zapys/"];
+  for (const route of staleCopyRoutes) {
     await navigateAndAssertResources(page, `${base}${route}`);
     const body = await page.locator("body").innerText();
-    if (!body.includes(requiredText))
-      throw new Error(`${route}: required route body copy missing: ${requiredText}`);
+    assertNoLocalDraftDeliveryPromises(body, `${route}: stale booking copy`);
   }
   await navigateAndAssertResources(page, `${base}/`);
   const faqEntries = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
@@ -412,6 +406,7 @@ try {
   );
   if (faqEntries.length < 1)
     throw new Error("homepage: FAQ JSON-LD is missing");
+  assertNoLocalDraftDeliveryPromises(JSON.stringify(faqEntries), "homepage: FAQ JSON-LD stale booking copy");
   await navigateAndAssertResources(page, `${base}/zapys/`);
   const booking = page.locator("[data-appointment-form]");
   if (!(await booking.isVisible())) throw new Error("booking form missing");
@@ -467,29 +462,27 @@ try {
   await loadingState;
   const submittedRequest = await firstBookingRequest;
   const submittedResponse = await firstBookingResponse;
-  const submittedBody = JSON.parse(submittedRequest.postData() || '{}');
-  if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
-    throw new Error("booking request values were not submitted exactly");
-  await page.locator('[data-submit-status]').waitFor({ state: 'visible' });
-  if (process.env.QA_MOCK_BOOKING === "1" && bookingBodies.length !== 1)
-    throw new Error(`expected exactly one mocked booking request, got ${bookingBodies.length}`);
-  if (JSON.stringify(bookingBodies[0] || submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
-    throw new Error("booking request values were not submitted exactly");
-  if (
-    !/запит на запис надіслано/i.test(
-      await page.locator("[data-submit-status]").innerText(),
-    )
-  )
-    throw new Error("booking success status missing");
-  if (await page.evaluate(() => (window).__bookingStorageWrites.length))
-    throw new Error("booking submit wrote to localStorage");
   let submittedId = null;
   try {
+    const submittedBody = JSON.parse(submittedRequest.postData() || '{}');
+    if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
+      throw new Error("booking request values were not submitted exactly");
+    await page.locator('[data-submit-status]').waitFor({ state: 'visible' });
+    if (process.env.QA_MOCK_BOOKING === "1" && bookingBodies.length !== 1)
+      throw new Error(`expected exactly one mocked booking request, got ${bookingBodies.length}`);
+    if (JSON.stringify(bookingBodies[0] || submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
+      throw new Error("booking request values were not submitted exactly");
+    if (!/запит на запис надіслано/i.test(await page.locator("[data-submit-status]").innerText()))
+      throw new Error("booking success status missing");
+    if (await page.evaluate(() => (window).__bookingStorageWrites.length))
+      throw new Error("booking submit wrote to localStorage");
     if (submittedResponse.status() !== 201)
       throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
     submittedId = await submittedResponse.headerValue("x-booking-request-id");
     submittedId ||= JSON.parse(await boundedResponseText(submittedResponse)).id;
     if (!submittedId) throw new Error("booking response did not provide an id");
+    if (process.env.QA_FORCE_POST_201_ASSERTION_FAILURE === "1")
+      throw new Error("forced post-201 assertion failure");
   const unexpectedBookingRequests = requests.filter(({ url, method }) => {
     if (url.includes("_astro")) return false;
     const requestUrl = new URL(url);
@@ -552,11 +545,7 @@ try {
     throw new Error("MedicalClinic JSON-LD missing");
   const homepageClinic = schemas.find((x) => x["@type"] === "MedicalClinic");
   const homepageText = (await page.locator("body").innerText()).toLowerCase();
-  for (const stale of ["sms", "адміністратор зв’яжеться", "адміністратор погодить"])
-    if (homepageText.includes(stale))
-      throw new Error(`booking contract contains stale claim: ${stale}`);
-  if (homepageText.includes("локальн") || !homepageText.includes("запит"))
-    throw new Error("booking request copy missing or stale");
+  assertNoLocalDraftDeliveryPromises(homepageText, "homepage: stale booking copy");
   await navigateAndAssertResources(page, `${base}/kontakty/`);
   const contactsClinic = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
     nodes.flatMap((n) => {
