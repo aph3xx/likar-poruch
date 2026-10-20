@@ -41,6 +41,8 @@ BACKEND_ENV_FILE="${BOOKING_ENV_FILE:-/home/sgdt1a/.config/likar-poruch-booking/
 BACKEND_ACTIVE_BEFORE=$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)
 BACKEND_ENABLED_BEFORE=$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)
 PROMOTED=0
+BACKEND_CADDY_BEFORE=0
+[[ -f "$BACKEND_CADDYFILE" ]] && BACKEND_CADDY_BEFORE=1
 [[ -f "$BACKEND_INSTALL_DIR/booking_service.py" ]] && cp "$BACKEND_INSTALL_DIR/booking_service.py" "$BACKEND_SNAPSHOT/booking_service.py"
 [[ -f "$BACKEND_UNIT_PATH" ]] && cp "$BACKEND_UNIT_PATH" "$BACKEND_SNAPSHOT/unit"
 [[ -f "$BACKEND_CADDYFILE" ]] && cp "$BACKEND_CADDYFILE" "$BACKEND_SNAPSHOT/Caddyfile"
@@ -61,7 +63,7 @@ EXPECTED_HASH=$(sha256sum "$NEXT/index.html" | cut -d' ' -f1)
 rollback() {
   local backend_rollback_failed=0
   trap - ERR
-  if [[ "$BACKEND_ACTIVE_BEFORE" == active || ! -f "$BACKEND_SNAPSHOT/unit" ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
+  if [[ "$BACKEND_ACTIVE_BEFORE" == active || "$BACKEND_ACTIVE_BEFORE" == inactive || -f "$BACKEND_UNIT_PATH" ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/booking_service.py" ]]; then cp "$BACKEND_SNAPSHOT/booking_service.py" "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; else rm -f "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/unit" ]]; then cp "$BACKEND_SNAPSHOT/unit" "$BACKEND_UNIT_PATH" || backend_rollback_failed=1; else rm -f "$BACKEND_UNIT_PATH" || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/Caddyfile" ]]; then cp "$BACKEND_SNAPSHOT/Caddyfile" "$BACKEND_CADDYFILE" || backend_rollback_failed=1; else rm -f "$BACKEND_CADDYFILE" || backend_rollback_failed=1; fi
@@ -78,6 +80,11 @@ rollback() {
   fi
   [[ "$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)" == "$BACKEND_ACTIVE_BEFORE" ]] || backend_rollback_failed=1
   [[ "$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)" == "$BACKEND_ENABLED_BEFORE" ]] || backend_rollback_failed=1
+  if [[ "$BACKEND_CADDY_BEFORE" == 1 ]]; then
+    cmp -s "$BACKEND_SNAPSHOT/Caddyfile" "$BACKEND_CADDYFILE" || backend_rollback_failed=1
+    "${CADDY_BIN:-$HOME/.local/bin/caddy}" validate --config "$BACKEND_CADDYFILE" --adapter caddyfile >/dev/null 2>&1 || backend_rollback_failed=1
+    systemctl --user reload sur-hub-gateway.service >/dev/null 2>&1 || backend_rollback_failed=1
+  fi
   [[ "$backend_rollback_failed" == 0 ]] || fail "$1; backend rollback failed closed"
   if [[ "$PROMOTED" == "1" ]]; then
     rm -rf "$TARGET"
