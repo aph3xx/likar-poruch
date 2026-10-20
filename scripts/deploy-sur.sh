@@ -37,11 +37,14 @@ BACKEND_INSTALL_DIR="${BOOKING_INSTALL_DIR:-/home/sgdt1a/.local/share/likar-poru
 BACKEND_UNIT_PATH="${SYSTEMD_DIR:-/home/sgdt1a/.config/systemd/user}/likar-poruch-booking.service"
 BACKEND_SNAPSHOT=$(mktemp -d)
 BACKEND_CADDYFILE="${CADDYFILE:-/home/sgdt1a/infrastructure/sur-hub/Caddyfile}"
+BACKEND_ENV_FILE="${BOOKING_ENV_FILE:-/home/sgdt1a/.config/likar-poruch-booking/environment}"
 BACKEND_ACTIVE_BEFORE=$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)
 BACKEND_ENABLED_BEFORE=$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)
+PROMOTED=0
 [[ -f "$BACKEND_INSTALL_DIR/booking_service.py" ]] && cp "$BACKEND_INSTALL_DIR/booking_service.py" "$BACKEND_SNAPSHOT/booking_service.py"
 [[ -f "$BACKEND_UNIT_PATH" ]] && cp "$BACKEND_UNIT_PATH" "$BACKEND_SNAPSHOT/unit"
 [[ -f "$BACKEND_CADDYFILE" ]] && cp "$BACKEND_CADDYFILE" "$BACKEND_SNAPSHOT/Caddyfile"
+[[ -f "$BACKEND_ENV_FILE" ]] && cp "$BACKEND_ENV_FILE" "$BACKEND_SNAPSHOT/environment"
 cleanup() {
   rm -rf "$NEXT"
   rm -f "$LIVE_BODY" "$SMOKE_BODY"
@@ -57,21 +60,29 @@ EXPECTED_HASH=$(sha256sum "$NEXT/index.html" | cut -d' ' -f1)
 
 rollback() {
   local backend_rollback_failed=0
-  if [[ "$BACKEND_ACTIVE_BEFORE" == active ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
+  if [[ "$BACKEND_ACTIVE_BEFORE" == active || ! -f "$BACKEND_SNAPSHOT/unit" ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/booking_service.py" ]]; then cp "$BACKEND_SNAPSHOT/booking_service.py" "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; else rm -f "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/unit" ]]; then cp "$BACKEND_SNAPSHOT/unit" "$BACKEND_UNIT_PATH" || backend_rollback_failed=1; else rm -f "$BACKEND_UNIT_PATH" || backend_rollback_failed=1; fi
-  if [[ -f "$BACKEND_SNAPSHOT/Caddyfile" ]]; then cp "$BACKEND_SNAPSHOT/Caddyfile" "$BACKEND_CADDYFILE" || backend_rollback_failed=1; fi
+  if [[ -f "$BACKEND_SNAPSHOT/Caddyfile" ]]; then cp "$BACKEND_SNAPSHOT/Caddyfile" "$BACKEND_CADDYFILE" || backend_rollback_failed=1; else rm -f "$BACKEND_CADDYFILE" || backend_rollback_failed=1; fi
+  if [[ -f "$BACKEND_SNAPSHOT/environment" ]]; then cp "$BACKEND_SNAPSHOT/environment" "$BACKEND_ENV_FILE" || backend_rollback_failed=1; else rm -f "$BACKEND_ENV_FILE" || backend_rollback_failed=1; fi
   systemctl --user daemon-reload >/dev/null 2>&1 || backend_rollback_failed=1
   if [[ -f "$BACKEND_SNAPSHOT/unit" ]]; then
     if [[ "$BACKEND_ENABLED_BEFORE" == enabled ]]; then systemctl --user enable likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; else systemctl --user disable likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
     if [[ "$BACKEND_ACTIVE_BEFORE" == active ]]; then systemctl --user start likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
+  else
+    systemctl --user disable likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1
   fi
+  [[ "$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)" == "$BACKEND_ACTIVE_BEFORE" ]] || backend_rollback_failed=1
+  [[ "$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)" == "$BACKEND_ENABLED_BEFORE" ]] || backend_rollback_failed=1
   [[ "$backend_rollback_failed" == 0 ]] || fail "$1; backend rollback failed closed"
-  rm -rf "$TARGET"
-  if [[ -e "$PREVIOUS" ]]; then
-    mv "$PREVIOUS" "$TARGET"
+  if [[ "$PROMOTED" == "1" ]]; then
+    rm -rf "$TARGET"
+    if [[ -e "$PREVIOUS" ]]; then
+      mv "$PREVIOUS" "$TARGET"
+    fi
   fi
-  fail "$1; previous artifact restored"
+  if [[ "$PROMOTED" == "1" ]]; then fail "$1; previous artifact restored"; fi
+  fail "$1; live artifact preserved"
 }
 
 # Install backend and gateway before any user-facing smoke. The installer is
@@ -121,6 +132,7 @@ fi
 rm -rf "$PREVIOUS"
 if [[ -e "$TARGET" ]]; then mv "$TARGET" "$PREVIOUS"; fi
 mv "$NEXT" "$TARGET"
+PROMOTED=1
 DEPLOYED_HASH=$(sha256sum "$TARGET/index.html" | cut -d' ' -f1)
 [[ "$DEPLOYED_HASH" == "$EXPECTED_HASH" ]] || rollback "deployed artifact hash mismatch"
 if ! curl --fail --silent --show-error --resolve sur.kyiv.ua:10443:127.0.0.1 "$LIVE_URL" -o "$LIVE_BODY"; then

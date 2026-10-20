@@ -21,7 +21,13 @@ ACTIVE_BEFORE=$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)
 ENABLED_BEFORE=$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)
 
 fail() { printf 'booking install: %s\n' "$*" >&2; exit 1; }
-inject_failure() { [[ "${BOOKING_INSTALL_FAIL_PHASE:-}" != "$1" ]] || fail "injected failure at $1"; }
+inject_failure() {
+  [[ "${BOOKING_INSTALL_FAIL_PHASE:-}" != "$1" ]] && return 0
+  if [[ "$ROLLBACK_ACTIVE" == "1" ]]; then
+    rollback "injected failure at $1"
+  fi
+  fail "injected failure at $1"
+}
 cleanup() { rm -rf "$BACKUP_DIR"; }
 trap cleanup EXIT
 trap 'if [[ "$ROLLBACK_ACTIVE" == "1" ]]; then rollback "unexpected installation failure"; fi' ERR
@@ -50,7 +56,7 @@ rollback() {
   trap - ERR
   set +e
   local rollback_failed=0
-  if [[ "$ACTIVE_BEFORE" == active ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
+  if [[ "$ACTIVE_BEFORE" == active || ! -f "$BACKUP_DIR/unit" ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cp "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py" || rollback_failed=1; else rm -f "$INSTALL_DIR/booking_service.py" || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/unit" ]]; then cp "$BACKUP_DIR/unit" "$UNIT_PATH" || rollback_failed=1; else rm -f "$UNIT_PATH" || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/environment" ]]; then cp "$BACKUP_DIR/environment" "$BOOKING_ENV_FILE" || rollback_failed=1; else rm -f "$BOOKING_ENV_FILE" || rollback_failed=1; fi
@@ -59,6 +65,8 @@ rollback() {
   if [[ -f "$BACKUP_DIR/unit" ]]; then
     if [[ "$ENABLED_BEFORE" == enabled ]]; then systemctl --user enable "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; else systemctl --user disable "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
     if [[ "$ACTIVE_BEFORE" == active ]]; then systemctl --user start "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; elif [[ "$ACTIVE_BEFORE" == inactive ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
+  else
+    systemctl --user disable "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1
   fi
   cmp -s "$BACKUP_DIR/Caddyfile" "$CADDYFILE" || rollback_failed=1
   if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cmp -s "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py" || rollback_failed=1; elif [[ -e "$INSTALL_DIR/booking_service.py" ]]; then rollback_failed=1; fi
@@ -66,6 +74,8 @@ rollback() {
   if [[ -f "$BACKUP_DIR/environment" ]]; then cmp -s "$BACKUP_DIR/environment" "$BOOKING_ENV_FILE" || rollback_failed=1; elif [[ -e "$BOOKING_ENV_FILE" ]]; then rollback_failed=1; fi
   "$CADDY_BIN" validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 || rollback_failed=1
   systemctl --user reload "$CADDY_SERVICE" >/dev/null 2>&1 || rollback_failed=1
+  [[ "$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)" == "$ACTIVE_BEFORE" ]] || rollback_failed=1
+  [[ "$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)" == "$ENABLED_BEFORE" ]] || rollback_failed=1
   [[ "$rollback_failed" == 0 ]] || fail "$reason; rollback failed closed and requires operator repair"
   fail "$reason; previous backend/config/service state restored"
 }

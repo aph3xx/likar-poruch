@@ -471,14 +471,32 @@ try {
     await page.route("**/api/booking-requests", async (route) => {
       await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
     });
+  } else if (process.env.QA_BOOKING_SMOKE_TOKEN) {
+    await page.route("**/api/booking-requests", async (route) => {
+      await route.continue({
+        headers: {
+          ...route.request().headers(),
+          "x-booking-smoke-failure": process.env.QA_BOOKING_SMOKE_TOKEN,
+        },
+      });
+    });
   }
+  const failureResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/api/booking-requests') && response.request().method() === 'POST',
+  );
   await booking.locator('button[type="submit"]').click();
+  const failedBookingResponse = await failureResponse;
   if (
     !/не вдалося надіслати/i.test(
       await page.locator("[data-submit-status]").innerText(),
     )
   )
     throw new Error("retryable server error status missing");
+  if (!process.env.QA_MOCK_BOOKING && failedBookingResponse.status() !== 503)
+    throw new Error(`real booking failure returned HTTP ${failedBookingResponse.status()}`);
+  const bookingPostCount = requests.filter(({ url, method }) => url.endsWith('/api/booking-requests') && method === 'POST').length;
+  if (bookingPostCount !== 2)
+    throw new Error(`expected exactly two booking POST requests, got ${bookingPostCount}`);
   if (await booking.locator('[name="name"]').inputValue() !== "Тест Пацієнт" ||
       await booking.locator('[name="phone"]').inputValue() !== "+380671234567" ||
       await booking.locator('[name="date"]').inputValue() !== "2099-01-01")
@@ -519,6 +537,23 @@ try {
   if (schemas.some((x) => ["ItemList", "ProfilePage"].includes(x["@type"])))
     throw new Error("stale aggregator schema found");
   await page.close();
+  const noJsContext = await browser.newContext({ javaScriptEnabled: false });
+  const noJsPage = await noJsContext.newPage();
+  const noJsPosts = [];
+  noJsPage.on("request", (request) => {
+    if (request.method() === "POST") noJsPosts.push(request.url());
+  });
+  const noJsUrl = `${base}/zapys/`;
+  await noJsPage.goto(noJsUrl, { waitUntil: "domcontentloaded" });
+  const noJsButton = noJsPage.locator('[data-appointment-form] button[type="submit"]');
+  if (!(await noJsButton.isDisabled()))
+    throw new Error("no-JS booking submit must be disabled");
+  await noJsButton.click({ force: true });
+  if (noJsPage.url() !== noJsUrl)
+    throw new Error("no-JS booking interaction navigated");
+  if (noJsPosts.length)
+    throw new Error("no-JS booking interaction submitted a request");
+  await noJsContext.close();
   console.log(
     "Clinic browser QA passed across retained Ukrainian routes at 320, 360, 390, 640, 768, 1024, 1280, and 1440px: 44px standalone targets, consent, booking POST/accepted/retry states, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.",
   );

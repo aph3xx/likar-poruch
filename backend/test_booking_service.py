@@ -99,7 +99,12 @@ class BookingHttpTests(unittest.TestCase):
                 b"Content-Type: application/json\r\nContent-Length: " + str(len(body)).encode() +
                 b"\r\nContent-Length: 1\r\nConnection: close\r\n\r\n" + body
             )
-            response = connection.recv(4096)
+            response = b""
+            while b"ambiguous_framing" not in response:
+                chunk = connection.recv(4096)
+                if not chunk:
+                    break
+                response += chunk
         self.assertIn(b" 400 ", response)
         self.assertIn(b"ambiguous_framing", response)
 
@@ -112,6 +117,25 @@ class BookingHttpTests(unittest.TestCase):
         self.assertFalse(self.repository.delete_smoke(normal_id, "secret", "secret"))
         self.assertIsNone(self.repository.get(smoke_id))
         self.assertIsNotNone(self.repository.get(normal_id))
+
+    def test_controlled_smoke_failure_does_not_persist(self):
+        self.server.smoke_token = "secret"
+        status, payload = self.request(
+            "POST", "/booking-requests",
+            {"name": "Smoke Patient", "phone": "+380671234567", "date": "2099-01-01"},
+        )
+        self.assertEqual(status, 201)
+        self.assertIsNotNone(self.repository.get(payload["id"]))
+        request = urllib.request.Request(
+            self.url + "/booking-requests",
+            data=json.dumps({"name": "Other Patient", "phone": "+380671234568", "date": "2099-01-02"}).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json", "X-Booking-Smoke-Failure": "secret"},
+        )
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            urllib.request.urlopen(request)
+        self.assertEqual(raised.exception.code, 503)
+        self.assertEqual(self.repository.connection.execute("SELECT COUNT(*) FROM booking_requests").fetchone()[0], 1)
 
 
 if __name__ == "__main__":

@@ -235,6 +235,11 @@ class BookingHandler(BaseHTTPRequestHandler):
         smoke_token = self.headers.get("X-Booking-Smoke-Token", "")
         expected_smoke_token = getattr(self.server, "smoke_token", "")
         is_smoke = bool(expected_smoke_token and secrets.compare_digest(smoke_token, expected_smoke_token))
+        if expected_smoke_token and secrets.compare_digest(
+            self.headers.get("X-Booking-Smoke-Failure", ""), expected_smoke_token
+        ):
+            self._error(HTTPStatus.SERVICE_UNAVAILABLE, "qa_forced_failure")
+            return
         request_id = self.server.repository.create(name, phone, requested_date, created_at, is_smoke=is_smoke)
         if request_id is None:
             self._error(HTTPStatus.CONFLICT, "duplicate_request")
