@@ -77,7 +77,10 @@ EXPECTED_HASH=$(sha256sum "$NEXT/index.html" | cut -d' ' -f1)
 rollback() {
   local backend_rollback_failed=0
   trap - ERR
-  if [[ "$BACKEND_ACTIVE_BEFORE" == active || ( ! -f "$BACKEND_SNAPSHOT/unit" && -e "$BACKEND_UNIT_PATH" ) ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
+  # The installer may have started an initially inactive existing unit. Stop
+  # any unit that exists now before restoring its inactive/absent state, while
+  # avoiding systemd's rc=5 for a genuinely absent first-install unit.
+  if [[ "$BACKEND_ACTIVE_BEFORE" == active || -e "$BACKEND_UNIT_PATH" ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/booking_service.py" ]]; then cp "$BACKEND_SNAPSHOT/booking_service.py" "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; else rm -f "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/unit" ]]; then
     cp "$BACKEND_SNAPSHOT/unit" "$BACKEND_UNIT_PATH" || backend_rollback_failed=1
