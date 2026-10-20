@@ -32,9 +32,10 @@ mkdir -p "$PARENT"
 NEXT=$(mktemp -d "$PARENT/.likar-poruch-site.next.XXXXXX")
 PREVIOUS="$PARENT/.likar-poruch-site.previous"
 LIVE_BODY=$(mktemp)
+SMOKE_BODY=""
 cleanup() {
   rm -rf "$NEXT"
-  rm -f "$LIVE_BODY"
+  rm -f "$LIVE_BODY" "$SMOKE_BODY"
 }
 trap cleanup EXIT
 
@@ -69,16 +70,39 @@ fi
 LIVE_HASH=$(sha256sum "$LIVE_BODY" | cut -d' ' -f1)
 [[ "$LIVE_HASH" == "$EXPECTED_HASH" ]] || rollback "live gateway does not serve the new artifact"
 
-if ! QA_BASE_URL="https://sur.kyiv.ua:10443/likar-poruch" \
-  QA_HOST_RESOLVER_RULES="MAP sur.kyiv.ua 127.0.0.1" \
-  npm run qa:browser; then
-  rollback "live gateway browser QA failed"
-fi
-
-# Install the backend only after the static artifact and browser gate pass. The
-# installer is transactional, so failures cannot leave a mixed gateway.
+# Install backend and gateway before any user-facing smoke. The installer is
+# transactional, so failures cannot leave a mixed gateway.
 if [[ "${SKIP_BOOKING_BACKEND:-0}" != "1" ]]; then
   bash "$REPO_ROOT/scripts/install-booking-backend.sh" "$REPO_ROOT" || rollback "booking backend install failed"
+  SMOKE_DB="${BOOKING_DB:-/home/sgdt1a/.local/share/likar-poruch-booking/state/booking.sqlite3}"
+  BEFORE_COUNT=$(python3 - "$SMOKE_DB" <<'PY'
+import sqlite3, sys
+with sqlite3.connect(sys.argv[1]) as db:
+    print(db.execute("SELECT COUNT(*) FROM booking_requests").fetchone()[0])
+PY
+)
+  SMOKE_BODY=$(mktemp)
+  SMOKE_DATE=$(TZ=Europe/Kyiv date -d 'yesterday' +%F)
+  SMOKE_STATUS=$(curl --silent --show-error --output "$SMOKE_BODY" --write-out '%{http_code}' \
+    --resolve sur.kyiv.ua:10443:127.0.0.1 \
+    -H 'Content-Type: application/json' \
+    --data "{\"name\":\"SUR smoke\",\"phone\":\"+380671234567\",\"date\":\"$SMOKE_DATE\"}" \
+    "$LIVE_URL/api/booking-requests")
+  [[ "$SMOKE_STATUS" == 422 ]] || rollback "SUR booking smoke returned HTTP $SMOKE_STATUS"
+  AFTER_COUNT=$(python3 - "$SMOKE_DB" <<'PY'
+import sqlite3, sys
+with sqlite3.connect(sys.argv[1]) as db:
+    print(db.execute("SELECT COUNT(*) FROM booking_requests").fetchone()[0])
+PY
+)
+  [[ "$BEFORE_COUNT" == "$AFTER_COUNT" ]] || rollback "SUR smoke changed SQLite row count"
+fi
+
+if ! QA_BASE_URL="https://sur.kyiv.ua:10443/likar-poruch" \
+  QA_HOST_RESOLVER_RULES="MAP sur.kyiv.ua 127.0.0.1" \
+  QA_MOCK_BOOKING=0 \
+  npm run qa:browser; then
+  rollback "live gateway browser QA failed"
 fi
 
 rm -rf "$PREVIOUS"

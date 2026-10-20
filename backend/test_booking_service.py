@@ -6,17 +6,16 @@ import urllib.error
 import urllib.request
 from collections import defaultdict, deque
 from datetime import date, timedelta
-from http.server import ThreadingHTTPServer
 from tempfile import TemporaryDirectory
 
-from backend.booking_service import BookingHandler, BookingRepository
+from backend.booking_service import BoundedThreadingHTTPServer, BookingHandler, BookingRepository
 
 
 class BookingHttpTests(unittest.TestCase):
     def setUp(self):
         self.tmp = TemporaryDirectory()
         self.repository = BookingRepository(self.tmp.name + "/bookings.sqlite3")
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), BookingHandler)
+        self.server = BoundedThreadingHTTPServer(("127.0.0.1", 0), BookingHandler)
         self.server.repository = self.repository
         self.server.request_times = defaultdict(deque)
         self.server.request_times_lock = threading.Lock()

@@ -15,10 +15,14 @@ MARKER_START='# BEGIN LIKAR-PORUCH BOOKING API (managed)'
 MARKER_END='# END LIKAR-PORUCH BOOKING API (managed)'
 UNIT_PATH="$SYSTEMD_DIR/$UNIT_NAME"
 BACKUP_DIR=$(mktemp -d)
+ROLLBACK_ACTIVE=0
+ACTIVE_BEFORE=$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)
+ENABLED_BEFORE=$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)
 
 fail() { printf 'booking install: %s\n' "$*" >&2; exit 1; }
 cleanup() { rm -rf "$BACKUP_DIR"; }
 trap cleanup EXIT
+trap 'if [[ "$ROLLBACK_ACTIVE" == "1" ]]; then rollback "unexpected installation failure"; fi' ERR
 [[ -f "$REPO_ROOT/backend/booking_service.py" ]] || fail "backend source not found"
 command -v systemctl >/dev/null || fail "systemctl is required"
 command -v curl >/dev/null || fail "curl is required"
@@ -33,18 +37,26 @@ chmod 755 "$INSTALL_DIR/booking_service.py.new"
 cp "$CADDYFILE" "$BACKUP_DIR/Caddyfile"
 [[ -f "$INSTALL_DIR/booking_service.py" ]] && cp "$INSTALL_DIR/booking_service.py" "$BACKUP_DIR/booking_service.py"
 [[ -f "$UNIT_PATH" ]] && cp "$UNIT_PATH" "$BACKUP_DIR/unit"
+ROLLBACK_ACTIVE=1
 
 rollback() {
+  local reason=$1
+  ROLLBACK_ACTIVE=0
+  trap - ERR
   set +e
   systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1
   if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cp "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py"; else rm -f "$INSTALL_DIR/booking_service.py"; fi
   if [[ -f "$BACKUP_DIR/unit" ]]; then cp "$BACKUP_DIR/unit" "$UNIT_PATH"; else rm -f "$UNIT_PATH"; fi
   cp "$BACKUP_DIR/Caddyfile" "$CADDYFILE"
   systemctl --user daemon-reload >/dev/null 2>&1
-  systemctl --user start "$UNIT_NAME" >/dev/null 2>&1
+  if [[ "$ENABLED_BEFORE" == enabled ]]; then systemctl --user enable "$UNIT_NAME" >/dev/null 2>&1; else systemctl --user disable "$UNIT_NAME" >/dev/null 2>&1; fi
+  if [[ "$ACTIVE_BEFORE" == active ]]; then systemctl --user start "$UNIT_NAME" >/dev/null 2>&1; else systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1; fi
+  cmp -s "$BACKUP_DIR/Caddyfile" "$CADDYFILE" || { printf 'booking install: rollback Caddy verification failed\n' >&2; exit 1; }
+  if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cmp -s "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py" || { printf 'booking install: rollback backend verification failed\n' >&2; exit 1; }; fi
+  if [[ -f "$BACKUP_DIR/unit" ]]; then cmp -s "$BACKUP_DIR/unit" "$UNIT_PATH" || { printf 'booking install: rollback unit verification failed\n' >&2; exit 1; }; fi
   "$CADDY_BIN" validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1
   systemctl --user reload "$CADDY_SERVICE" >/dev/null 2>&1
-  fail "$1; previous backend/config restored"
+  fail "$reason; previous backend/config/service state restored"
 }
 
 mv "$INSTALL_DIR/booking_service.py.new" "$INSTALL_DIR/booking_service.py"
@@ -58,6 +70,7 @@ path, start, end = sys.argv[1:]
 text = Path(path).read_text()
 block = f'''{start}
 handle /api/booking-requests {{
+    rewrite * /booking-requests
     reverse_proxy 127.0.0.1:8787
 }}
 {end}'''
@@ -77,8 +90,18 @@ PY
 
 "$CADDY_BIN" validate --config "$CADDYFILE" --adapter caddyfile || rollback "Caddy validation failed"
 systemctl --user daemon-reload || rollback "systemd reload failed"
-systemctl --user enable --now "$UNIT_NAME" || rollback "backend start failed"
+if [[ "$ACTIVE_BEFORE" == active ]]; then
+  systemctl --user restart "$UNIT_NAME" || rollback "backend restart failed"
+elif [[ -z "$ACTIVE_BEFORE" || "$ACTIVE_BEFORE" == inactive ]]; then
+  systemctl --user start "$UNIT_NAME" || rollback "backend start failed"
+fi
+if [[ "$ENABLED_BEFORE" == enabled || -z "$ENABLED_BEFORE" ]]; then
+  systemctl --user enable "$UNIT_NAME" || rollback "backend enable failed"
+else
+  systemctl --user disable "$UNIT_NAME" || rollback "backend disable failed"
+fi
 for _ in {1..20}; do curl --fail --silent "$HEALTH_URL" >/dev/null && break; sleep 1; done
 curl --fail --silent "$HEALTH_URL" >/dev/null || rollback "backend health check failed"
 systemctl --user reload "$CADDY_SERVICE" || rollback "gateway reload failed"
+ROLLBACK_ACTIVE=0
 printf 'Booking backend installed and healthy at %s\n' "$HEALTH_URL"

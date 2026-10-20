@@ -7,6 +7,8 @@ import hashlib
 import json
 import re
 import secrets
+import socket
+import socketserver
 import sqlite3
 import threading
 import time
@@ -15,12 +17,13 @@ from ipaddress import ip_address
 from collections import defaultdict, deque
 from datetime import date, datetime
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 MAX_BODY_BYTES = 4096
+REQUEST_TIMEOUT_SECONDS = 10
 RATE_LIMIT_COUNT = 5
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_MAX_CLIENTS = 4096
@@ -123,6 +126,10 @@ class BookingHandler(BaseHTTPRequestHandler):
     request_times_lock = threading.Lock()
     server_version = "BookingService/1"
 
+    def setup(self) -> None:
+        super().setup()
+        self.connection.settimeout(REQUEST_TIMEOUT_SECONDS)
+
     def log_message(self, _format: str, *_args: Any) -> None:
         return
 
@@ -166,7 +173,14 @@ class BookingHandler(BaseHTTPRequestHandler):
         if length < 0 or length > MAX_BODY_BYTES:
             self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "body_too_large")
             return
-        raw = self.rfile.read(length)
+        if self.headers.get("Transfer-Encoding"):
+            self._error(HTTPStatus.LENGTH_REQUIRED, "content_length_required")
+            return
+        try:
+            raw = self.rfile.read(length)
+        except socket.timeout:
+            self._error(HTTPStatus.REQUEST_TIMEOUT, "body_timeout")
+            return
         if len(raw) != length:
             self._error(HTTPStatus.BAD_REQUEST, "invalid_body")
             return
@@ -263,9 +277,35 @@ class BookingHandler(BaseHTTPRequestHandler):
         return peer
 
 
-def create_server(database_path: str | Path, host: str = "127.0.0.1", port: int = 8787) -> ThreadingHTTPServer:
+class BoundedThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
+    """Threaded server with a hard cap on connections held by slow clients."""
+
+    daemon_threads = True
+    block_on_close = True
+    request_queue_size = 32
+
+    def __init__(self, *args: Any, max_workers: int = 32, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._workers = threading.BoundedSemaphore(max_workers)
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        self._workers.acquire()
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._workers.release()
+            raise
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._workers.release()
+
+
+def create_server(database_path: str | Path, host: str = "127.0.0.1", port: int = 8787) -> BoundedThreadingHTTPServer:
     repository = BookingRepository(database_path)
-    server = ThreadingHTTPServer((host, port), BookingHandler)
+    server = BoundedThreadingHTTPServer((host, port), BookingHandler)
     server.repository = repository
     server.request_times = defaultdict(deque)
     server.request_times_lock = threading.Lock()

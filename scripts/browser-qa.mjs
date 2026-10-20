@@ -392,10 +392,12 @@ try {
   });
   const requests = [];
   const bookingBodies = [];
-  await page.route("**/api/booking-requests", async (route) => {
-    bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
-    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
-  });
+  if (process.env.QA_MOCK_BOOKING !== "0") {
+    await page.route("**/api/booking-requests", async (route) => {
+      bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
+    });
+  }
   page.on("request", (request) => requests.push({ url: request.url(), method: request.method() }));
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
@@ -406,8 +408,20 @@ try {
     };
     (window).__bookingStorageWrites = writes;
   });
+  const firstBookingRequest = page.waitForRequest((request) =>
+    request.url().endsWith('/api/booking-requests') && request.method() === 'POST',
+  );
   await booking.locator('button[type="submit"]').click();
-  if (JSON.stringify(bookingBodies[0]) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
+  const submittedRequest = await firstBookingRequest;
+  if (await booking.locator('button[type="submit"]').isDisabled() === false && /Надсилаємо/.test(await booking.locator('[data-submit-label]').innerText()))
+    throw new Error("booking submit did not enter loading state");
+  const submittedBody = JSON.parse(submittedRequest.postData() || '{}');
+  if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380****4567","date":"2099-01-01"}')
+    throw new Error("booking request values were not submitted exactly");
+  await page.locator('[data-submit-status]').waitFor({ state: 'visible' });
+  if (process.env.QA_MOCK_BOOKING !== "0" && bookingBodies.length !== 1)
+    throw new Error(`expected exactly one mocked booking request, got ${bookingBodies.length}`);
+  if (JSON.stringify(bookingBodies[0] || submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380****4567","date":"2099-01-01"}')
     throw new Error("booking request values were not submitted exactly");
   if (
     !/запит на запис надіслано/i.test(
@@ -427,9 +441,11 @@ try {
     throw new Error("booking submit made an unexpected request");
   if (navigations.length) throw new Error("booking submit navigated");
   await page.unroute("**/api/booking-requests");
-  await page.route("**/api/booking-requests", async (route) => {
-    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
-  });
+  if (process.env.QA_MOCK_BOOKING !== "0") {
+    await page.route("**/api/booking-requests", async (route) => {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
+    });
+  }
   await booking.locator('button[type="submit"]').click();
   if (
     !/не вдалося надіслати/i.test(
