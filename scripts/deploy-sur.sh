@@ -27,10 +27,6 @@ npm test
 npm audit --omit=dev
 git diff --check
 
-if [[ "${SKIP_BOOKING_BACKEND:-0}" != "1" ]]; then
-  bash "$REPO_ROOT/scripts/install-booking-backend.sh" "$REPO_ROOT"
-fi
-
 PARENT=$(dirname "$TARGET")
 mkdir -p "$PARENT"
 NEXT=$(mktemp -d "$PARENT/.likar-poruch-site.next.XXXXXX")
@@ -77,6 +73,12 @@ if ! QA_BASE_URL="https://sur.kyiv.ua:10443/likar-poruch" \
   QA_HOST_RESOLVER_RULES="MAP sur.kyiv.ua 127.0.0.1" \
   npm run qa:browser; then
   rollback "live gateway browser QA failed"
+fi
+
+# Install the backend only after the static artifact and browser gate pass. The
+# installer is transactional, so failures cannot leave a mixed gateway.
+if [[ "${SKIP_BOOKING_BACKEND:-0}" != "1" ]]; then
+  bash "$REPO_ROOT/scripts/install-booking-backend.sh" "$REPO_ROOT" || rollback "booking backend install failed"
 fi
 
 rm -rf "$PREVIOUS"

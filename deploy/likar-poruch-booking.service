@@ -4,16 +4,16 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/.local/share/likar-poruch-booking
-Environment=BOOKING_DB=%h/.local/share/likar-poruch-booking/state/booking.sqlite3
-ExecStart=/usr/bin/python3 %h/.local/share/likar-poruch-booking/booking_service.py
+WorkingDirectory=/home/sgdt1a/.local/share/likar-poruch-booking
+Environment=BOOKING_DB=/home/sgdt1a/.local/share/likar-poruch-booking/state/booking.sqlite3
+ExecStart=/usr/bin/python3 /home/sgdt1a/.local/share/likar-poruch-booking/booking_service.py
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=%h/.local/share/likar-poruch-booking/state
+ProtectHome=read-only
+ReadWritePaths=/home/sgdt1a/.local/share/likar-poruch-booking/state
 
 [Install]
 WantedBy=default.target

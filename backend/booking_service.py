@@ -11,16 +11,19 @@ import sqlite3
 import threading
 import time
 import unicodedata
+from ipaddress import ip_address
 from collections import defaultdict, deque
-from datetime import date
+from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 MAX_BODY_BYTES = 4096
 RATE_LIMIT_COUNT = 5
 RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_CLIENTS = 4096
 NAME_MIN_LENGTH = 2
 NAME_MAX_LENGTH = 80
 PHONE_MIN_DIGITS = 10
@@ -57,7 +60,7 @@ def normalize_date(value: Any) -> str:
         parsed = date.fromisoformat(value)
     except ValueError as error:
         raise ValueError("invalid_date") from error
-    if parsed < date.today():
+    if parsed < datetime.now(ZoneInfo("Europe/Kyiv")).date():
         raise ValueError("invalid_date")
     return value
 
@@ -168,11 +171,15 @@ class BookingHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.BAD_REQUEST, "invalid_body")
             return
         try:
-            payload = json.loads(raw)
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            payload = self._strict_object(raw.decode("utf-8"))
+        except UnicodeDecodeError:
             self._error(HTTPStatus.BAD_REQUEST, "invalid_json")
             return
-        if not isinstance(payload, dict) or set(payload) != {"name", "phone", "date"}:
+        except (json.JSONDecodeError, ValueError) as error:
+            error_code = str(error) if str(error) in {"duplicate_fields", "invalid_fields"} else "invalid_json"
+            self._error(HTTPStatus.BAD_REQUEST, error_code)
+            return
+        if set(payload) != {"name", "phone", "date"}:
             self._error(HTTPStatus.BAD_REQUEST, "invalid_fields")
             return
         try:
@@ -198,19 +205,62 @@ class BookingHandler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
 
+    def do_HEAD(self) -> None:
+        self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
+
+    def do_OPTIONS(self) -> None:
+        self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
+
+    @staticmethod
+    def _strict_object(raw: str) -> dict[str, Any]:
+        def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+            result: dict[str, Any] = {}
+            for key, value in items:
+                if key in result:
+                    raise ValueError("duplicate_fields")
+                result[key] = value
+            return result
+
+        value = json.loads(raw, object_pairs_hook=pairs)
+        if not isinstance(value, dict):
+            raise ValueError("invalid_fields")
+        return value
+
     def _allow_request(self) -> bool:
         now = time.monotonic()
-        address = self.client_address[0]
+        address = self._client_identity()
         request_times = getattr(self.server, "request_times", self.request_times)
         request_times_lock = getattr(self.server, "request_times_lock", self.request_times_lock)
         with request_times_lock:
             timestamps = request_times[address]
             while timestamps and timestamps[0] <= now - RATE_LIMIT_WINDOW_SECONDS:
                 timestamps.popleft()
+            if not timestamps:
+                request_times.pop(address, None)
+                timestamps = request_times[address]
+            if len(request_times) > RATE_LIMIT_MAX_CLIENTS:
+                oldest = min(request_times, key=lambda key: request_times[key][0] if request_times[key] else now)
+                request_times.pop(oldest, None)
             if len(timestamps) >= RATE_LIMIT_COUNT:
                 return False
             timestamps.append(now)
             return True
+
+    def _client_identity(self) -> str:
+        peer = self.client_address[0]
+        try:
+            trusted = ip_address(peer).is_loopback
+        except ValueError:
+            trusted = False
+        forwarded = self.headers.get("X-Forwarded-For", "")
+        if trusted and forwarded:
+            candidate = forwarded.split(",", 1)[0].strip()
+            try:
+                ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+        return peer
 
 
 def create_server(database_path: str | Path, host: str = "127.0.0.1", port: int = 8787) -> ThreadingHTTPServer:

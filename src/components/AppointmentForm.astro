@@ -9,7 +9,7 @@ const { compact = false } = Astro.props;
     <p>Ми отримаємо ваш запит на запис. Не додавайте медичні дані — форма містить лише необхідну контактну інформацію.</p>
   </div>
 
-  <form class="appointment-form" data-appointment-form novalidate>
+  <form class="appointment-form" method="post" action={`${import.meta.env.BASE_URL}api/booking-requests`} data-appointment-form novalidate>
     <div class="error-summary" data-error-summary role="alert" tabindex="-1" hidden>
       <strong>Перевірте, будь ласка, дані</strong>
       <ul data-error-list></ul>

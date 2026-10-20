@@ -396,7 +396,7 @@ try {
     bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
     await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
   });
-  page.on("request", (request) => requests.push(request.url()));
+  page.on("request", (request) => requests.push({ url: request.url(), method: request.method() }));
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     const writes = [];
@@ -417,12 +417,14 @@ try {
     throw new Error("booking success status missing");
   if (await page.evaluate(() => (window).__bookingStorageWrites.length))
     throw new Error("booking submit wrote to localStorage");
-  if (
-    requests.some(
-      (url) => !url.includes("_astro") && !url.includes("127.0.0.1"),
-    )
-  )
-    throw new Error("booking submit made a network request");
+  const unexpectedBookingRequests = requests.filter(({ url, method }) => {
+    if (url.includes("_astro")) return false;
+    const requestUrl = new URL(url);
+    return requestUrl.origin !== new URL(page.url()).origin ||
+      !requestUrl.pathname.endsWith("/api/booking-requests") || method !== "POST";
+  });
+  if (unexpectedBookingRequests.length)
+    throw new Error("booking submit made an unexpected request");
   if (navigations.length) throw new Error("booking submit navigated");
   await page.unroute("**/api/booking-requests");
   await page.route("**/api/booking-requests", async (route) => {
@@ -435,6 +437,10 @@ try {
     )
   )
     throw new Error("retryable server error status missing");
+  if (await booking.locator('[name="name"]').inputValue() !== "Тест Пацієнт" ||
+      await booking.locator('[name="phone"]').inputValue() !== "+380****4567" ||
+      await booking.locator('[name="date"]').inputValue() !== "2099-01-01")
+    throw new Error("booking values were not retained after server failure");
   await navigateAndAssertResources(page, `${base}/`);
   if (await page.locator('link[rel="alternate"][hreflang="ru"]').count())
     throw new Error("retired Russian hreflang present");
