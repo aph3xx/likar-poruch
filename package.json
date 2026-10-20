@@ -12,6 +12,7 @@
     "test:backend": "python3 -m unittest backend.test_booking_service",
     "qa:browser": "node scripts/browser-qa.mjs",
     "qa:browser:mock": "node scripts/browser-qa-mock.mjs",
+    "qa:browser:early-failure": "node scripts/browser-qa-early-failure.mjs",
     "deploy:sur": "bash scripts/deploy-sur.sh"
   },
   "dependencies": {

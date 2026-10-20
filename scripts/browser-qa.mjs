@@ -430,11 +430,33 @@ try {
   });
   const requests = [];
   const bookingBodies = [];
+  const mockBookingRows = new Set();
+  let mockBookingDeleteCount = 0;
   if (process.env.QA_MOCK_BOOKING === "1") {
-    await page.route("**/api/booking-requests", async (route) => {
+    await page.route("**/api/booking-requests**", async (route) => {
+      if (route.request().method() === "DELETE") {
+        mockBookingDeleteCount += 1;
+        mockBookingRows.delete("qa-smoke");
+        await route.fulfill({ status: 204, body: "" });
+        return;
+      }
       bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
+      if (bookingBodies.length > 1) {
+        await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
+        return;
+      }
+      mockBookingRows.add("qa-smoke");
       await new Promise((resolve) => setTimeout(resolve, 250));
-      await route.fulfill({ status: 201, contentType: "application/json", headers: { "X-Booking-Request-Id": "qa-smoke" }, body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
+      await route.fulfill({
+        status: 201,
+        contentType: process.env.QA_MOCK_BOOKING_BODY_FAILURE ? "text/plain" : "application/json",
+        headers: { "X-Booking-Request-Id": "qa-smoke" },
+        body: process.env.QA_MOCK_BOOKING_BODY_FAILURE === "unreadable"
+          ? ""
+          : process.env.QA_MOCK_BOOKING_BODY_FAILURE === "malformed"
+            ? "not-json"
+            : JSON.stringify({ id: "qa-smoke", status: "pending" }),
+      });
     });
   }
   page.on("request", (request) => requests.push({ url: request.url(), method: request.method() }));
@@ -464,8 +486,8 @@ try {
   const submittedResponse = await firstBookingResponse;
   let submittedId = null;
   try {
-    const submittedResponseBody = JSON.parse(await boundedResponseText(submittedResponse));
     submittedId = await submittedResponse.headerValue("x-booking-request-id");
+    const submittedResponseBody = JSON.parse(await boundedResponseText(submittedResponse));
     submittedId ||= submittedResponseBody.id;
     if (!submittedId) throw new Error("booking response did not provide an id");
     if (process.env.QA_FORCE_POST_201_EARLY_ASSERTION_FAILURE === "1")
@@ -586,6 +608,8 @@ try {
   if (noJsPosts.length)
     throw new Error("no-JS booking interaction submitted a request");
   await noJsContext.close();
+  } catch (error) {
+    if (!process.env.QA_MOCK_BOOKING_BODY_FAILURE) throw error;
   } finally {
     if (process.env.QA_BOOKING_SMOKE_TOKEN && submittedId) {
       const cleanupStatus = await page.evaluate(async ({ id, token }) => {
@@ -606,6 +630,8 @@ try {
       const bookingDeleteCount = requests.filter(({ url, method }) => url.includes('/api/booking-requests/') && method === 'DELETE').length;
       if (bookingDeleteCount !== 1)
         throw new Error(`expected exactly one booking cleanup DELETE request, got ${bookingDeleteCount}`);
+      if (process.env.QA_MOCK_BOOKING_BODY_FAILURE && (mockBookingDeleteCount !== 1 || mockBookingRows.size !== 0))
+        throw new Error(`early post-201 cleanup left ${mockBookingRows.size} mock booking rows after ${mockBookingDeleteCount} DELETE requests`);
     }
     await page.close();
   }

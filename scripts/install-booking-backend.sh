@@ -7,6 +7,7 @@ INSTALL_DIR=${BOOKING_INSTALL_DIR:-"$USER_HOME/.local/share/likar-poruch-booking
 STATE_DIR="$INSTALL_DIR/state"
 SYSTEMD_DIR=${SYSTEMD_DIR:-"$USER_HOME/.config/systemd/user"}
 BOOKING_ENV_FILE=${BOOKING_ENV_FILE:-"$USER_HOME/.config/likar-poruch-booking/environment"}
+BOOKING_ENV_DIR=$(dirname "$BOOKING_ENV_FILE")
 UNIT_NAME=likar-poruch-booking.service
 CADDYFILE=${CADDYFILE:-"$USER_HOME/infrastructure/sur-hub/Caddyfile"}
 CADDY_BIN=${CADDY_BIN:-"$USER_HOME/.local/bin/caddy"}
@@ -19,8 +20,12 @@ BACKUP_DIR=$(mktemp -d)
 ROLLBACK_ACTIVE=0
 INSTALL_DIR_BEFORE=0
 STATE_DIR_BEFORE=0
+SYSTEMD_DIR_BEFORE=0
+BOOKING_ENV_DIR_BEFORE=0
 [[ -d "$INSTALL_DIR" ]] && INSTALL_DIR_BEFORE=1
 [[ -d "$STATE_DIR" ]] && STATE_DIR_BEFORE=1
+[[ -d "$SYSTEMD_DIR" ]] && SYSTEMD_DIR_BEFORE=1
+[[ -d "$BOOKING_ENV_DIR" ]] && BOOKING_ENV_DIR_BEFORE=1
 ACTIVE_BEFORE=$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)
 ENABLED_BEFORE=$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)
 
@@ -88,6 +93,8 @@ rollback() {
   [[ "$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)" == "$ENABLED_BEFORE" ]] || rollback_failed=1
   [[ "$INSTALL_DIR_BEFORE" == 1 || ! -d "$INSTALL_DIR" ]] || rm -rf "$INSTALL_DIR"
   [[ "$STATE_DIR_BEFORE" == 1 || ! -d "$STATE_DIR" ]] || rm -rf "$STATE_DIR"
+  if [[ "$SYSTEMD_DIR_BEFORE" == 0 && -d "$SYSTEMD_DIR" ]]; then rmdir "$SYSTEMD_DIR" 2>/dev/null || rollback_failed=1; fi
+  if [[ "$BOOKING_ENV_DIR_BEFORE" == 0 && -d "$BOOKING_ENV_DIR" ]]; then rmdir "$BOOKING_ENV_DIR" 2>/dev/null || rollback_failed=1; fi
   [[ "$rollback_failed" == 0 ]] || fail "$reason; rollback failed closed and requires operator repair"
   fail "$reason; previous backend/config/service state restored"
 }
