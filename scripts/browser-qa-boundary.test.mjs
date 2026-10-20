@@ -3,6 +3,17 @@ import fs from "node:fs/promises";
 import test from "node:test";
 
 const source = await fs.readFile(new URL("./browser-qa.mjs", import.meta.url), "utf8");
+const appointmentFormSource = await fs.readFile(
+  new URL("../src/components/AppointmentForm.astro", import.meta.url),
+  "utf8"
+);
+
+const removedLocalDraftCopy =
+  "Запит збережеться лише як локальна чернетка на цьому пристрої. Сайт не надсилає його до медичного центру.";
+
+test("appointment form omits the obsolete local-draft notice", () => {
+  assert.doesNotMatch(appointmentFormSource, new RegExp(removedLocalDraftCopy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
 
 test("browser QA uses explicit first-party completion instead of network-idle", () => {
   assert.doesNotMatch(source, /networkidle/);
