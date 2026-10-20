@@ -17,6 +17,10 @@ MARKER_END='# END LIKAR-PORUCH BOOKING API (managed)'
 UNIT_PATH="$SYSTEMD_DIR/$UNIT_NAME"
 BACKUP_DIR=$(mktemp -d)
 ROLLBACK_ACTIVE=0
+INSTALL_DIR_BEFORE=0
+STATE_DIR_BEFORE=0
+[[ -d "$INSTALL_DIR" ]] && INSTALL_DIR_BEFORE=1
+[[ -d "$STATE_DIR" ]] && STATE_DIR_BEFORE=1
 ACTIVE_BEFORE=$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)
 ENABLED_BEFORE=$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)
 
@@ -41,14 +45,14 @@ mkdir -p "$INSTALL_DIR" "$STATE_DIR" "$SYSTEMD_DIR"
 mkdir -p "$(dirname "$BOOKING_ENV_FILE")"
 chmod 755 "$INSTALL_DIR"
 chmod 700 "$STATE_DIR"
-cp "$REPO_ROOT/backend/booking_service.py" "$INSTALL_DIR/booking_service.py.new"
-inject_failure backend-copy
-chmod 755 "$INSTALL_DIR/booking_service.py.new"
 cp "$CADDYFILE" "$BACKUP_DIR/Caddyfile"
 [[ -f "$INSTALL_DIR/booking_service.py" ]] && cp "$INSTALL_DIR/booking_service.py" "$BACKUP_DIR/booking_service.py"
 [[ -f "$UNIT_PATH" ]] && cp "$UNIT_PATH" "$BACKUP_DIR/unit"
 [[ -f "$BOOKING_ENV_FILE" ]] && cp "$BOOKING_ENV_FILE" "$BACKUP_DIR/environment"
 ROLLBACK_ACTIVE=1
+cp "$REPO_ROOT/backend/booking_service.py" "$INSTALL_DIR/booking_service.py.new"
+inject_failure backend-copy
+chmod 755 "$INSTALL_DIR/booking_service.py.new"
 
 rollback() {
   local reason=$1
@@ -56,6 +60,7 @@ rollback() {
   trap - ERR
   set +e
   local rollback_failed=0
+  rm -f "$INSTALL_DIR/booking_service.py.new" "$UNIT_PATH.new"
   if [[ "$ACTIVE_BEFORE" == active || ! -f "$BACKUP_DIR/unit" ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cp "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py" || rollback_failed=1; else rm -f "$INSTALL_DIR/booking_service.py" || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/unit" ]]; then cp "$BACKUP_DIR/unit" "$UNIT_PATH" || rollback_failed=1; else rm -f "$UNIT_PATH" || rollback_failed=1; fi
@@ -66,7 +71,10 @@ rollback() {
     if [[ "$ENABLED_BEFORE" == enabled ]]; then systemctl --user enable "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; else systemctl --user disable "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
     if [[ "$ACTIVE_BEFORE" == active ]]; then systemctl --user start "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; elif [[ "$ACTIVE_BEFORE" == inactive ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
   else
-    systemctl --user disable "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1
+    # An absent first-install unit has no enablement to disable.  Calling
+    # systemctl disable here turns a correctly restored not-found state into
+    # a reported rollback failure on fake and real systemd alike.
+    :
   fi
   cmp -s "$BACKUP_DIR/Caddyfile" "$CADDYFILE" || rollback_failed=1
   if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cmp -s "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py" || rollback_failed=1; elif [[ -e "$INSTALL_DIR/booking_service.py" ]]; then rollback_failed=1; fi
@@ -76,6 +84,8 @@ rollback() {
   systemctl --user reload "$CADDY_SERVICE" >/dev/null 2>&1 || rollback_failed=1
   [[ "$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)" == "$ACTIVE_BEFORE" ]] || rollback_failed=1
   [[ "$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)" == "$ENABLED_BEFORE" ]] || rollback_failed=1
+  [[ "$INSTALL_DIR_BEFORE" == 1 || -d "$INSTALL_DIR" ]] || rm -rf "$INSTALL_DIR"
+  [[ "$STATE_DIR_BEFORE" == 1 || -d "$STATE_DIR" ]] || rm -rf "$STATE_DIR"
   [[ "$rollback_failed" == 0 ]] || fail "$reason; rollback failed closed and requires operator repair"
   fail "$reason; previous backend/config/service state restored"
 }
@@ -100,7 +110,8 @@ handle /api/booking-requests {{
     rewrite * /booking-requests
     reverse_proxy 127.0.0.1:8787
 }}
-handle_path /api/booking-requests/* {{
+handle /api/booking-requests/* {{
+    uri replace /api/booking-requests /booking-requests
     reverse_proxy 127.0.0.1:8787
 }}
 {end}'''

@@ -60,6 +60,7 @@ EXPECTED_HASH=$(sha256sum "$NEXT/index.html" | cut -d' ' -f1)
 
 rollback() {
   local backend_rollback_failed=0
+  trap - ERR
   if [[ "$BACKEND_ACTIVE_BEFORE" == active || ! -f "$BACKEND_SNAPSHOT/unit" ]]; then systemctl --user stop likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/booking_service.py" ]]; then cp "$BACKEND_SNAPSHOT/booking_service.py" "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; else rm -f "$BACKEND_INSTALL_DIR/booking_service.py" || backend_rollback_failed=1; fi
   if [[ -f "$BACKEND_SNAPSHOT/unit" ]]; then cp "$BACKEND_SNAPSHOT/unit" "$BACKEND_UNIT_PATH" || backend_rollback_failed=1; else rm -f "$BACKEND_UNIT_PATH" || backend_rollback_failed=1; fi
@@ -70,7 +71,10 @@ rollback() {
     if [[ "$BACKEND_ENABLED_BEFORE" == enabled ]]; then systemctl --user enable likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; else systemctl --user disable likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
     if [[ "$BACKEND_ACTIVE_BEFORE" == active ]]; then systemctl --user start likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1; fi
   else
-    systemctl --user disable likar-poruch-booking.service >/dev/null 2>&1 || backend_rollback_failed=1
+    # A missing first-install unit is already in the desired not-found state;
+    # `disable` would report an error and falsely turn a successful rollback
+    # into a failure.
+    :
   fi
   [[ "$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)" == "$BACKEND_ACTIVE_BEFORE" ]] || backend_rollback_failed=1
   [[ "$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)" == "$BACKEND_ENABLED_BEFORE" ]] || backend_rollback_failed=1
@@ -84,6 +88,7 @@ rollback() {
   if [[ "$PROMOTED" == "1" ]]; then fail "$1; previous artifact restored"; fi
   fail "$1; live artifact preserved"
 }
+trap 'rollback "unexpected deployment failure"' ERR
 
 # Install backend and gateway before any user-facing smoke. The installer is
 # transactional, so failures cannot leave a mixed gateway.
@@ -103,29 +108,31 @@ if [[ "${SKIP_BOOKING_BACKEND:-0}" != "1" ]]; then
     --data "{\"name\":\"$SMOKE_NAME\",\"phone\":\"$SMOKE_PHONE\",\"date\":\"$SMOKE_DATE\"}" \
     "$LIVE_URL/api/booking-requests")
   [[ "$SMOKE_STATUS" == 201 ]] || rollback "SUR booking smoke returned HTTP $SMOKE_STATUS"
-  SMOKE_ID=$(python3 - "$SMOKE_BODY" <<'PY'
+  if ! SMOKE_ID=$(python3 - "$SMOKE_BODY" <<'PY'
 import json, sys
 payload = json.load(open(sys.argv[1]))
 assert set(payload) == {"id", "status"} and payload["status"] == "pending"
 print(payload["id"])
 PY
-  ) || rollback "SUR booking smoke returned an invalid response"
-  python3 - "$SMOKE_DB" "$SMOKE_ID" "$SMOKE_NAME" "$SMOKE_PHONE" "$SMOKE_DATE" <<'PY'
+  ); then rollback "SUR booking smoke returned an invalid response"; fi
+  if ! python3 - "$SMOKE_DB" "$SMOKE_ID" "$SMOKE_NAME" "$SMOKE_PHONE" "$SMOKE_DATE" <<'PY'
 import sqlite3, sys
 db, request_id, name, phone, requested_date = sys.argv[1:]
 with sqlite3.connect(db) as connection:
     row = connection.execute("SELECT id, name, phone, requested_date, status, is_smoke FROM booking_requests WHERE id = ?", (request_id,)).fetchone()
     assert row == (request_id, name, phone, requested_date, "pending", 1), row
 PY
+  then rollback "SUR booking smoke row verification failed"; fi
   curl --fail --silent --show-error -X DELETE \
     --resolve sur.kyiv.ua:10443:127.0.0.1 \
     -H "X-Booking-Maintenance-Token: $SMOKE_TOKEN" \
     "$LIVE_URL/api/booking-requests/$SMOKE_ID" >/dev/null || rollback "SUR booking smoke cleanup failed"
-  python3 - "$SMOKE_DB" "$SMOKE_ID" <<'PY'
+  if ! python3 - "$SMOKE_DB" "$SMOKE_ID" <<'PY'
 import sqlite3, sys
 with sqlite3.connect(sys.argv[1]) as connection:
     assert connection.execute("SELECT 1 FROM booking_requests WHERE id = ?", (sys.argv[2],)).fetchone() is None
 PY
+  then rollback "SUR booking smoke cleanup row remained"; fi
 fi
 
 # Promote the static artifact only after the backend is installed and healthy.
