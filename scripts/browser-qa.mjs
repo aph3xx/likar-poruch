@@ -464,6 +464,12 @@ try {
   const submittedResponse = await firstBookingResponse;
   let submittedId = null;
   try {
+    const submittedResponseBody = JSON.parse(await boundedResponseText(submittedResponse));
+    submittedId = await submittedResponse.headerValue("x-booking-request-id");
+    submittedId ||= submittedResponseBody.id;
+    if (!submittedId) throw new Error("booking response did not provide an id");
+    if (process.env.QA_FORCE_POST_201_EARLY_ASSERTION_FAILURE === "1")
+      throw new Error("forced early post-201 assertion failure");
     const submittedBody = JSON.parse(submittedRequest.postData() || '{}');
     if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
       throw new Error("booking request values were not submitted exactly");
@@ -478,9 +484,10 @@ try {
       throw new Error("booking submit wrote to localStorage");
     if (submittedResponse.status() !== 201)
       throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
-    submittedId = await submittedResponse.headerValue("x-booking-request-id");
-    submittedId ||= JSON.parse(await boundedResponseText(submittedResponse)).id;
-    if (!submittedId) throw new Error("booking response did not provide an id");
+    if (!/^application\/json(?:;|$)/i.test(submittedResponse.headers()["content-type"] || ""))
+      throw new Error("booking response was not JSON");
+    if (submittedResponseBody.status !== "pending")
+      throw new Error("booking response status was not pending");
     if (process.env.QA_FORCE_POST_201_ASSERTION_FAILURE === "1")
       throw new Error("forced post-201 assertion failure");
   const unexpectedBookingRequests = requests.filter(({ url, method }) => {

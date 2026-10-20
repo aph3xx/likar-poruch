@@ -22,9 +22,19 @@ test("browser QA keeps a bounded manifest fetch assertion", () => {
 
 test("browser QA protects every post-201 assertion with smoke cleanup", () => {
   assert.match(source, /let submittedId = null;\s+try \{/);
+  assert.match(source, /const submittedResponseBody = JSON\.parse\(await boundedResponseText\(submittedResponse\)\);\s+submittedId = await submittedResponse\.headerValue\("x-booking-request-id"\);\s+submittedId \|\|= submittedResponseBody\.id;\s+if \(!submittedId\)/);
+  assert.match(source, /QA_FORCE_POST_201_EARLY_ASSERTION_FAILURE/);
   assert.match(source, /QA_FORCE_POST_201_ASSERTION_FAILURE/);
   assert.match(source, /finally \{\s+if \(process\.env\.QA_BOOKING_SMOKE_TOKEN && submittedId\)/);
   assert.match(source, /expected exactly one booking cleanup DELETE request/);
+});
+
+test("browser QA's early post-201 probe runs before request assertions", () => {
+  const idAssignment = source.indexOf('submittedId = await submittedResponse.headerValue');
+  const earlyProbe = source.indexOf('QA_FORCE_POST_201_EARLY_ASSERTION_FAILURE');
+  const requestBodyAssertion = source.indexOf('booking request values were not submitted exactly');
+  assert.ok(idAssignment >= 0 && earlyProbe > idAssignment);
+  assert.ok(requestBodyAssertion > earlyProbe);
 });
 
 test("browser QA applies the stale-copy guard to routes and FAQ JSON-LD", () => {
