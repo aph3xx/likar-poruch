@@ -244,7 +244,14 @@ class BookingHandler(BaseHTTPRequestHandler):
         if request_id is None:
             self._error(HTTPStatus.CONFLICT, "duplicate_request")
             return
-        self._send_json(HTTPStatus.CREATED, {"id": request_id, "status": "pending"})
+        self.send_response(HTTPStatus.CREATED)
+        self.send_header("X-Booking-Request-Id", request_id)
+        encoded = json.dumps({"id": request_id, "status": "pending"}, separators=(",", ":")).encode()
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(encoded)
 
     def do_PUT(self) -> None:
         self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")

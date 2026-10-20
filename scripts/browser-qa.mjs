@@ -1,6 +1,20 @@
 import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
 
+const boundedResponseText = async (response, timeoutMs = 5_000) => {
+  let timer;
+  try {
+    return await Promise.race([
+      response.text(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("response body timeout")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const base = process.env.QA_BASE_URL || "http://127.0.0.1:4321/likar-poruch";
 const resolverRules = process.env.QA_HOST_RESOLVER_RULES;
 await fs.mkdir("artifacts/qa", { recursive: true });
@@ -400,7 +414,7 @@ try {
     await page.route("**/api/booking-requests", async (route) => {
       bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
       await new Promise((resolve) => setTimeout(resolve, 250));
-      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
+      await route.fulfill({ status: 201, contentType: "application/json", headers: { "X-Booking-Request-Id": "qa-smoke" }, body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
     });
   }
   page.on("request", (request) => requests.push({ url: request.url(), method: request.method() }));
@@ -446,7 +460,29 @@ try {
     throw new Error("booking submit wrote to localStorage");
   if (submittedResponse.status() !== 201)
     throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
-  const submittedId = JSON.parse(await submittedResponse.text()).id;
+  let submittedId = submittedResponse.headerValue("x-booking-request-id");
+  try {
+    submittedId ||= JSON.parse(await boundedResponseText(submittedResponse)).id;
+  } catch (error) {
+    if (!submittedId) throw error;
+  }
+  if (process.env.QA_BOOKING_SMOKE_TOKEN) {
+    const cleanupStatus = await page.evaluate(async ({ id, token }) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5_000);
+      try {
+        const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
+          method: "DELETE",
+          headers: { "X-Booking-Maintenance-Token": token },
+          signal: controller.signal,
+        });
+        return response.status;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
+    if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
+  }
   const unexpectedBookingRequests = requests.filter(({ url, method }) => {
     if (url.includes("_astro")) return false;
     const requestUrl = new URL(url);
@@ -456,16 +492,7 @@ try {
   if (unexpectedBookingRequests.length)
     throw new Error("booking submit made an unexpected request");
   if (navigations.length) throw new Error("booking submit navigated");
-  if (process.env.QA_BOOKING_SMOKE_TOKEN) {
-    const cleanupStatus = await page.evaluate(async ({ id, token }) => {
-      const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
-        method: "DELETE",
-        headers: { "X-Booking-Maintenance-Token": token },
-      });
-      return response.status;
-    }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
-    if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
-  }
+
   await page.unroute("**/api/booking-requests");
   if (process.env.QA_MOCK_BOOKING === "1") {
     await page.route("**/api/booking-requests", async (route) => {
