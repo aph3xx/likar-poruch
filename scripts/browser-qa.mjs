@@ -77,6 +77,10 @@ const assertNoLocalDraftDeliveryPromises = (copy, context) => {
     "погодить дату",
     "зв’яжеться з вами",
     "зв'яжеться з вами",
+    "локальна чернетка",
+    "лише на цьому пристрої",
+    "не надсилається до медичного центру",
+    "передати запит",
   ]) {
     if (normalized.includes(banned))
       throw new Error(`${context}: local-draft form promises clinic delivery: ${banned}`);
@@ -460,28 +464,32 @@ try {
     throw new Error("booking submit wrote to localStorage");
   if (submittedResponse.status() !== 201)
     throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
-  let submittedId = submittedResponse.headerValue("x-booking-request-id");
+  let submittedId = await submittedResponse.headerValue("x-booking-request-id");
   try {
     submittedId ||= JSON.parse(await boundedResponseText(submittedResponse)).id;
   } catch (error) {
     if (!submittedId) throw error;
   }
-  if (process.env.QA_BOOKING_SMOKE_TOKEN) {
-    const cleanupStatus = await page.evaluate(async ({ id, token }) => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5_000);
-      try {
-        const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
-          method: "DELETE",
-          headers: { "X-Booking-Maintenance-Token": token },
-          signal: controller.signal,
-        });
-        return response.status;
-      } finally {
-        clearTimeout(timeout);
-      }
-    }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
-    if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
+  try {
+    if (!submittedId) throw new Error("booking response did not provide an id");
+  } finally {
+    if (process.env.QA_BOOKING_SMOKE_TOKEN && submittedId) {
+      const cleanupStatus = await page.evaluate(async ({ id, token }) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5_000);
+        try {
+          const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
+            method: "DELETE",
+            headers: { "X-Booking-Maintenance-Token": token },
+            signal: controller.signal,
+          });
+          return response.status;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
+      if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
+    }
   }
   const unexpectedBookingRequests = requests.filter(({ url, method }) => {
     if (url.includes("_astro")) return false;

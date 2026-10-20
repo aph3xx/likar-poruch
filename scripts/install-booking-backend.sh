@@ -51,7 +51,6 @@ cp "$CADDYFILE" "$BACKUP_DIR/Caddyfile"
 [[ -f "$BOOKING_ENV_FILE" ]] && cp "$BOOKING_ENV_FILE" "$BACKUP_DIR/environment"
 ROLLBACK_ACTIVE=1
 cp "$REPO_ROOT/backend/booking_service.py" "$INSTALL_DIR/booking_service.py.new"
-inject_failure backend-copy
 chmod 755 "$INSTALL_DIR/booking_service.py.new"
 
 rollback() {
@@ -84,11 +83,13 @@ rollback() {
   systemctl --user reload "$CADDY_SERVICE" >/dev/null 2>&1 || rollback_failed=1
   [[ "$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)" == "$ACTIVE_BEFORE" ]] || rollback_failed=1
   [[ "$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)" == "$ENABLED_BEFORE" ]] || rollback_failed=1
-  [[ "$INSTALL_DIR_BEFORE" == 1 || -d "$INSTALL_DIR" ]] || rm -rf "$INSTALL_DIR"
-  [[ "$STATE_DIR_BEFORE" == 1 || -d "$STATE_DIR" ]] || rm -rf "$STATE_DIR"
+  [[ "$INSTALL_DIR_BEFORE" == 1 || ! -d "$INSTALL_DIR" ]] || rm -rf "$INSTALL_DIR"
+  [[ "$STATE_DIR_BEFORE" == 1 || ! -d "$STATE_DIR" ]] || rm -rf "$STATE_DIR"
   [[ "$rollback_failed" == 0 ]] || fail "$reason; rollback failed closed and requires operator repair"
   fail "$reason; previous backend/config/service state restored"
 }
+
+inject_failure backend-copy
 
 mv "$INSTALL_DIR/booking_service.py.new" "$INSTALL_DIR/booking_service.py"
 inject_failure backend-promote
