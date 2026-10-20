@@ -1,0 +1,14 @@
+[Unit]
+Description=Likar Poruch booking request intake
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/likar-poruch-booking
+EnvironmentFile=-%h/.config/likar-poruch-booking/environment
+ExecStart=/usr/bin/python3 %h/.local/share/likar-poruch-booking/booking_service.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

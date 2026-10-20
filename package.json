@@ -8,12 +8,13 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "npm run build && npm run test:backend && node scripts/validate-build.mjs && node scripts/validate-consent.mjs && node --test scripts/validate-build.test.mjs scripts/browser-qa-boundary.test.mjs && npm run qa:browser:mock && npm run test:booking-matrix",
+    "test": "npm run build && npm run test:backend && node scripts/validate-build.mjs && node scripts/validate-consent.mjs && node --test scripts/validate-build.test.mjs scripts/browser-qa-boundary.test.mjs && npm run qa:browser:mock && npm run test:booking-matrix && npm run test:deploy-rollback",
     "test:backend": "python3 -m unittest backend.test_booking_service",
     "test:booking-matrix": "bash scripts/booking-deployment-matrix.sh",
     "qa:browser": "node scripts/browser-qa.mjs",
     "qa:browser:mock": "node scripts/browser-qa-mock.mjs",
     "qa:browser:early-failure": "node scripts/browser-qa-early-failure.mjs",
+    "test:deploy-rollback": "bash scripts/deploy-rollback-matrix.sh",
     "deploy:sur": "bash scripts/deploy-sur.sh"
   },
   "dependencies": {

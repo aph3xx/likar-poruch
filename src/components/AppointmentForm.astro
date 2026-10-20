@@ -1,17 +1,18 @@
 ---
-
-
 interface Props { compact?: boolean }
 const { compact = false } = Astro.props;
-
 ---
 <section class:list={['appointment-card', { compact }]} aria-labelledby="appointment-form-title">
   <div class="form-heading">
     <p class="form-kicker">Запит на запис</p>
     <h2 id="appointment-form-title">{compact ? 'Збережіть запит' : 'Залиште запит на прийом'}</h2>
+    <p>Ми отримаємо ваш запит на запис. Не додавайте медичні дані — форма містить лише необхідну контактну інформацію.</p>
   </div>
 
-  <form class="appointment-form" data-appointment-form novalidate>
+  <form class="appointment-form" data-appointment-form aria-describedby="booking-noscript-help" novalidate>
+    <noscript>
+      <p id="booking-noscript-help" class="noscript-help" role="alert">Для безпечного надсилання запиту увімкніть JavaScript або зателефонуйте до клініки. Дані не додаються до адреси сторінки.</p>
+    </noscript>
     <div class="error-summary" data-error-summary role="alert" tabindex="-1" hidden>
       <strong>Перевірте, будь ласка, дані</strong>
       <ul data-error-list></ul>
@@ -20,35 +21,35 @@ const { compact = false } = Astro.props;
     <div class="field field-wide">
       <label for="booking-name">Ім’я та прізвище <span aria-hidden="true">*</span></label>
       <input id="booking-name" name="name" type="text" autocomplete="name" maxlength="80" aria-describedby="booking-name-hint booking-name-error" data-validate required />
-      <span class="field-hint" id="booking-name-hint">Як до вас звертатися під час підтвердження.</span>
+      <span class="field-hint" id="booking-name-hint">Як до вас звертатися.</span>
       <span class="field-error" id="booking-name-error"></span>
     </div>
 
     <div class="field field-wide">
       <label for="booking-phone">Номер телефона <span aria-hidden="true">*</span></label>
       <input id="booking-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="24" aria-describedby="booking-phone-hint booking-phone-error" data-validate required />
-      <span class="field-hint" id="booking-phone-hint">Вкажіть номер із кодом оператора або країни.</span>
+      <span class="field-hint" id="booking-phone-hint">Вкажіть номер із кодом країни або оператора.</span>
       <span class="field-error" id="booking-phone-error"></span>
     </div>
 
     <div class="field field-wide">
-      <label for="booking-datetime">Бажані дата й час <span aria-hidden="true">*</span></label>
-      <input id="booking-datetime" name="datetime" type="datetime-local" aria-describedby="booking-datetime-hint booking-datetime-error" data-validate required />
-      <span class="field-hint" id="booking-datetime-hint">Оберіть сьогоднішню або майбутню дату й час.</span>
-      <span class="field-error" id="booking-datetime-error"></span>
+      <label for="booking-date">Бажана дата <span aria-hidden="true">*</span></label>
+      <input id="booking-date" name="date" type="date" aria-describedby="booking-date-hint booking-date-error" data-validate required />
+      <span class="field-hint" id="booking-date-hint">Оберіть сьогоднішню або майбутню дату.</span>
+      <span class="field-error" id="booking-date-error"></span>
     </div>
 
     <div class="privacy-note field-wide">
       <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24"><path d="M12 3 5.5 5.6v5.7c0 4.4 2.7 8.3 6.5 9.7 3.8-1.4 6.5-5.3 6.5-9.7V5.6L12 3Zm0 2.2 4.5 1.8v4.3c0 3.3-1.9 6.3-4.5 7.5-2.6-1.2-4.5-4.2-4.5-7.5V7L12 5.2Z" /></svg>
-      <p><strong>Локальна чернетка.</strong> Дані залишаються на цьому пристрої й не стають видимими для клініки. Не додавайте медичні дані.</p>
+      <p><strong>Безпечний запит.</strong> Дані надсилаються до медичного центру для опрацювання запиту на запис. Не додавайте діагнози чи результати обстежень.</p>
     </div>
 
     <div class="form-actions field-wide">
-      <button class="submit-button" type="submit">
-        <span data-submit-label>Зберегти чернетку</span>
+      <button class="submit-button" type="submit" disabled>
+        <span data-submit-label>Надіслати запит на запис</span>
         <span aria-hidden="true">→</span>
       </button>
-      <p>Після збереження: <strong>зателефонуйте до клініки</strong>, щоб передати запит.</p>
+      <p>Запит не є підтвердженим записом.</p>
     </div>
 
     <p class="submit-status field-wide" data-submit-status role="status" aria-live="polite"></p>
@@ -62,20 +63,21 @@ const { compact = false } = Astro.props;
     const form = node;
     type BookingField = HTMLInputElement;
     const fields = Array.from(form.querySelectorAll<BookingField>('[data-validate]'));
-    const datetimeField = form.elements.namedItem('datetime');
+    const dateField = form.elements.namedItem('date');
     const summary = form.querySelector('[data-error-summary]');
     const errorList = form.querySelector('[data-error-list]');
     const status = form.querySelector('[data-submit-status]');
     const submit = form.querySelector('button[type="submit"]');
     const submitLabel = form.querySelector('[data-submit-label]');
+    const endpoint = `${import.meta.env.BASE_URL}api/booking-requests`;
     let startedEventSent = false;
     let submitting = false;
-    const KEY = 'likar:appointment_request';
+    if (submit instanceof HTMLButtonElement) submit.disabled = false;
 
-    if (datetimeField instanceof HTMLInputElement) {
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60_000;
-      datetimeField.min = new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    if (dateField instanceof HTMLInputElement) {
+      const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+      const today = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+      dateField.min = `${today.year}-${today.month}-${today.day}`;
     }
 
     const dispatchStarted = () => {
@@ -96,10 +98,9 @@ const { compact = false } = Astro.props;
         const digitCount = value.replace(/\D/g, '').length;
         if (digitCount < 10 || digitCount > 15) return 'Введіть номер, що містить від 10 до 15 цифр.';
       }
-      if (field.name === 'datetime') {
-        if (!value) return 'Оберіть бажані дату й час.';
-        if (field.validity.badInput) return 'Введіть дату й час у правильному форматі.';
-        if (datetimeField instanceof HTMLInputElement && value < datetimeField.min) return 'Оберіть сьогоднішню або майбутню дату й час.';
+      if (field.name === 'date') {
+        if (!value) return 'Оберіть бажану дату.';
+        if (field.validity.badInput || (dateField instanceof HTMLInputElement && value < dateField.min)) return 'Оберіть сьогоднішню або майбутню дату.';
       }
       return '';
     };
@@ -129,7 +130,7 @@ const { compact = false } = Astro.props;
       if (field instanceof HTMLInputElement && field.matches('[data-validate]')) validateField(field);
     });
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (submitting) return;
       hideSummary();
@@ -152,25 +153,33 @@ const { compact = false } = Astro.props;
 
       submitting = true;
       if (submit instanceof HTMLButtonElement) submit.disabled = true;
-      if (submitLabel) submitLabel.textContent = 'Зберігаємо…';
-      if (status) status.textContent = 'Зберігаємо локальну чернетку…';
-
+      if (submitLabel) submitLabel.textContent = 'Надсилаємо…';
+      if (status) status.textContent = 'Надсилаємо запит…';
       const data = new FormData(form);
-      const request = { name: String(data.get('name')).trim(), phone: String(data.get('phone')).trim(), datetime: String(data.get('datetime')) };
+      const request = { name: String(data.get('name')).trim(), phone: String(data.get('phone')).trim(), date: String(data.get('date')) };
       try {
-        window.localStorage.setItem(KEY, JSON.stringify(request));
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...((window as Window & { __BOOKING_SMOKE_TOKEN?: string }).__BOOKING_SMOKE_TOKEN
+              ? { 'X-Booking-Smoke-Token': (window as Window & { __BOOKING_SMOKE_TOKEN?: string }).__BOOKING_SMOKE_TOKEN as string }
+              : {}),
+          },
+          body: JSON.stringify(request),
+        });
+        if (!response.ok) throw new Error(response.status === 429 ? 'rate_limited' : 'server_error');
+        window.dispatchEvent(new CustomEvent('likar:booking_submitted', { detail: { form: 'appointment_request' } }));
+        if (status) status.textContent = 'Запит на запис надіслано. Він ще не є підтвердженим записом.';
+        if (submitLabel) submitLabel.textContent = 'Надіслати ще один запит';
       } catch {
+        if (status) status.textContent = 'Не вдалося надіслати запит. Перевірте з’єднання та спробуйте ще раз.';
+        if (submitLabel) submitLabel.textContent = 'Спробувати ще раз';
+      } finally {
         submitting = false;
         if (submit instanceof HTMLButtonElement) submit.disabled = false;
-        if (submitLabel) submitLabel.textContent = 'Спробувати ще раз';
-        if (status) status.textContent = 'Не вдалося зберегти чернетку на цьому пристрої. Дозвольте сховище або зателефонуйте до клініки.';
-        return;
       }
-      window.dispatchEvent(new CustomEvent('likar:booking_submitted', { detail: { form: 'appointment_request', channel: 'local_draft' } }));
-      if (status) status.textContent = 'Чернетку збережено лише на цьому пристрої. Зателефонуйте до клініки, щоб передати запит.';
-      submitting = false;
-      if (submit instanceof HTMLButtonElement) submit.disabled = false;
-      if (submitLabel) submitLabel.textContent = 'Зберегти ще раз';
     });
   });
 </script>
