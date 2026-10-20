@@ -1,0 +1,20 @@
+[Unit]
+Description=Лікар Поруч booking request service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sgdt1a/.local/share/likar-poruch-booking
+EnvironmentFile=-%h/.config/likar-poruch-booking/environment
+Environment=BOOKING_DB=/home/sgdt1a/.local/share/likar-poruch-booking/state/booking.sqlite3
+ExecStart=/usr/bin/python3 /home/sgdt1a/.local/share/likar-poruch-booking/booking_service.py
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/sgdt1a/.local/share/likar-poruch-booking/state
+
+[Install]
+WantedBy=default.target
