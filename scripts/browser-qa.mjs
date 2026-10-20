@@ -391,6 +391,27 @@ try {
         );
     }
   }
+  const requiredRouteBodies = [
+    ["/", "Здоров’я ближче"],
+    ["/kontakty/", "Збережіть локальну чернетку"],
+    ["/privacy/", "Форма запису"],
+    ["/zapys/", "Чернетка залишиться"],
+  ];
+  for (const [route, requiredText] of requiredRouteBodies) {
+    await navigateAndAssertResources(page, `${base}${route}`);
+    const body = await page.locator("body").innerText();
+    if (!body.includes(requiredText))
+      throw new Error(`${route}: required route body copy missing: ${requiredText}`);
+  }
+  await navigateAndAssertResources(page, `${base}/`);
+  const faqEntries = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
+    nodes.flatMap((node) => {
+      const value = JSON.parse(node.textContent || "{}");
+      return Array.isArray(value) ? value : [value];
+    }).find((value) => value["@type"] === "FAQPage")?.mainEntity || [],
+  );
+  if (faqEntries.length < 1)
+    throw new Error("homepage: FAQ JSON-LD is missing");
   await navigateAndAssertResources(page, `${base}/zapys/`);
   const booking = page.locator("[data-appointment-form]");
   if (!(await booking.isVisible())) throw new Error("booking form missing");
@@ -462,40 +483,19 @@ try {
     throw new Error("booking success status missing");
   if (await page.evaluate(() => (window).__bookingStorageWrites.length))
     throw new Error("booking submit wrote to localStorage");
-  if (submittedResponse.status() !== 201)
-    throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
-  let submittedId = await submittedResponse.headerValue("x-booking-request-id");
+  let submittedId = null;
   try {
+    if (submittedResponse.status() !== 201)
+      throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
+    submittedId = await submittedResponse.headerValue("x-booking-request-id");
     submittedId ||= JSON.parse(await boundedResponseText(submittedResponse)).id;
-  } catch (error) {
-    if (!submittedId) throw error;
-  }
-  try {
     if (!submittedId) throw new Error("booking response did not provide an id");
-  } finally {
-    if (process.env.QA_BOOKING_SMOKE_TOKEN && submittedId) {
-      const cleanupStatus = await page.evaluate(async ({ id, token }) => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5_000);
-        try {
-          const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
-            method: "DELETE",
-            headers: { "X-Booking-Maintenance-Token": token },
-            signal: controller.signal,
-          });
-          return response.status;
-        } finally {
-          clearTimeout(timeout);
-        }
-      }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
-      if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
-    }
-  }
   const unexpectedBookingRequests = requests.filter(({ url, method }) => {
     if (url.includes("_astro")) return false;
     const requestUrl = new URL(url);
-    return requestUrl.origin !== new URL(page.url()).origin ||
-      !requestUrl.pathname.endsWith("/api/booking-requests") || method !== "POST";
+    const isBookingPost = requestUrl.pathname.endsWith("/api/booking-requests") && method === "POST";
+    const isBookingDelete = requestUrl.pathname.includes("/api/booking-requests/") && method === "DELETE";
+    return requestUrl.origin !== new URL(page.url()).origin || (!isBookingPost && !isBookingDelete);
   });
   if (unexpectedBookingRequests.length)
     throw new Error("booking submit made an unexpected request");
@@ -532,6 +532,7 @@ try {
   const bookingPostCount = requests.filter(({ url, method }) => url.endsWith('/api/booking-requests') && method === 'POST').length;
   if (bookingPostCount !== 2)
     throw new Error(`expected exactly two booking POST requests, got ${bookingPostCount}`);
+
   if (await booking.locator('[name="name"]').inputValue() !== "Тест Пацієнт" ||
       await booking.locator('[name="phone"]').inputValue() !== "+380671234567" ||
       await booking.locator('[name="date"]').inputValue() !== "2099-01-01")
@@ -571,7 +572,7 @@ try {
   await navigateAndAssertResources(page, `${base}/`);
   if (schemas.some((x) => ["ItemList", "ProfilePage"].includes(x["@type"])))
     throw new Error("stale aggregator schema found");
-  await page.close();
+
   const noJsContext = await browser.newContext({ javaScriptEnabled: false });
   const noJsPage = await noJsContext.newPage();
   const noJsPosts = [];
@@ -589,6 +590,29 @@ try {
   if (noJsPosts.length)
     throw new Error("no-JS booking interaction submitted a request");
   await noJsContext.close();
+  } finally {
+    if (process.env.QA_BOOKING_SMOKE_TOKEN && submittedId) {
+      const cleanupStatus = await page.evaluate(async ({ id, token }) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5_000);
+        try {
+          const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
+            method: "DELETE",
+            headers: { "X-Booking-Maintenance-Token": token },
+            signal: controller.signal,
+          });
+          return response.status;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
+      if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
+      const bookingDeleteCount = requests.filter(({ url, method }) => url.includes('/api/booking-requests/') && method === 'DELETE').length;
+      if (bookingDeleteCount !== 1)
+        throw new Error(`expected exactly one booking cleanup DELETE request, got ${bookingDeleteCount}`);
+    }
+    await page.close();
+  }
   console.log(
     "Clinic browser QA passed across retained Ukrainian routes at 320, 360, 390, 640, 768, 1024, 1280, and 1440px: 44px standalone targets, consent, booking POST/accepted/retry states, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.",
   );

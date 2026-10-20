@@ -49,10 +49,6 @@ cp "$CADDYFILE" "$BACKUP_DIR/Caddyfile"
 [[ -f "$INSTALL_DIR/booking_service.py" ]] && cp "$INSTALL_DIR/booking_service.py" "$BACKUP_DIR/booking_service.py"
 [[ -f "$UNIT_PATH" ]] && cp "$UNIT_PATH" "$BACKUP_DIR/unit"
 [[ -f "$BOOKING_ENV_FILE" ]] && cp "$BOOKING_ENV_FILE" "$BACKUP_DIR/environment"
-ROLLBACK_ACTIVE=1
-cp "$REPO_ROOT/backend/booking_service.py" "$INSTALL_DIR/booking_service.py.new"
-chmod 755 "$INSTALL_DIR/booking_service.py.new"
-
 rollback() {
   local reason=$1
   ROLLBACK_ACTIVE=0
@@ -88,6 +84,10 @@ rollback() {
   [[ "$rollback_failed" == 0 ]] || fail "$reason; rollback failed closed and requires operator repair"
   fail "$reason; previous backend/config/service state restored"
 }
+
+ROLLBACK_ACTIVE=1
+cp "$REPO_ROOT/backend/booking_service.py" "$INSTALL_DIR/booking_service.py.new"
+chmod 755 "$INSTALL_DIR/booking_service.py.new"
 
 inject_failure backend-copy
 
