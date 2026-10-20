@@ -22,14 +22,16 @@ case "$cmd" in
   is-active)
     if [[ -e "$unit_path" ]]; then cat "$state/active"; else printf 'not-found\n'; exit 4; fi ;;
   is-enabled)
-    if [[ -L "$wants" && ! -e "$unit_path" ]]; then printf 'not-found\n'; exit 4; fi
+    if [[ ! -e "$unit_path" ]]; then printf 'not-found\n'; exit 4; fi
     if [[ -L "$wants" ]]; then printf 'enabled\n'; else cat "$state/enabled"; fi ;;
   stop)
     [[ -e "$unit_path" ]] || exit 5
     printf 'inactive\n' >"$state/active" ;;
   start) printf 'active\n' >"$state/active" ;;
   enable) mkdir -p "$BACKEND_SYSTEMD_WANTS_DIR"; ln -sfn ../likar-poruch-booking.service "$wants" ;;
-  disable) rm -f "$wants"; printf 'disabled\n' >"$state/enabled" ;;
+  disable)
+    [[ -e "$unit_path" ]] || exit 6
+    rm -f "$wants"; printf 'disabled\n' >"$state/enabled" ;;
   daemon-reload|reload) : ;;
   *) : ;;
 esac
@@ -55,14 +57,19 @@ printf 'disabled\n' >"$STATE/enabled"
 
 # The real function uses fail() to terminate deploy-sur. Keep it observable
 # without terminating this matrix process.
-fail() { printf '%s\n' "$*" >"$TMP/failure"; }
+fail() { printf '%s\n' "$*" >>"$TMP/failure"; }
 rollback_source=$(awk '/^rollback\(\) \{/{capture=1} capture{print} capture && /^\}/{exit}' "$ROOT/scripts/deploy-sur.sh")
 eval "$rollback_source"
 
 assert_equal() { [[ "$1" == "$2" ]] || { printf 'expected %s, got %s\n' "$2" "$1" >&2; return 1; }; }
 assert_topology() {
-  [[ -d "$BACKEND_INSTALL_DIR" && -d "$BACKEND_STATE_DIR" && -d "$BACKEND_SYSTEMD_DIR" && -d "$BACKEND_ENV_DIR" ]] || return 1
-  [[ -f "$BACKEND_UNIT_PATH" ]] || return 1
+  local mode=$1
+  [[ -d "$BACKEND_ENV_DIR" && -f "$BACKEND_ENV_FILE" && -f "$BACKEND_CADDYFILE" ]] || return 1
+  if [[ "$mode" == upgrade ]]; then
+    [[ -d "$BACKEND_INSTALL_DIR" && -d "$BACKEND_STATE_DIR" && -d "$BACKEND_SYSTEMD_DIR" && -f "$BACKEND_UNIT_PATH" ]] || return 1
+  else
+    [[ ! -e "$BACKEND_INSTALL_DIR" && ! -e "$BACKEND_STATE_DIR" && ! -e "$BACKEND_SYSTEMD_DIR" && ! -e "$BACKEND_UNIT_PATH" ]] || return 1
+  fi
 }
 run_case() {
   local mode=$1
@@ -84,7 +91,7 @@ run_case() {
   if [[ "$mode" == upgrade ]]; then
     printf 'new unit\n' >"$BACKEND_UNIT_PATH"
     printf 'active\n' >"$STATE/active"
-  else
+  elif [[ "$mode" == first-install ]]; then
     # First install: the installer created and enabled a new unit, but there
     # was no unit in the snapshot. Rollback must stop it, disable it while it
     # still exists, then remove it.
@@ -92,8 +99,17 @@ run_case() {
     mkdir -p "$BACKEND_SYSTEMD_WANTS_DIR"
     ln -s ../likar-poruch-booking.service "$BACKEND_SYSTEMD_WANTS_DIR/likar-poruch-booking.service"
     printf 'active\n' >"$STATE/active"
+    BACKEND_ACTIVE_BEFORE=not-found BACKEND_ENABLED_BEFORE=not-found
     rm -f "$BACKEND_SNAPSHOT/booking_service.py" "$BACKEND_SNAPSHOT/unit"
     BACKEND_INSTALL_DIR_BEFORE=0 BACKEND_STATE_DIR_BEFORE=0 BACKEND_SYSTEMD_DIR_BEFORE=0
+  else
+    # A failed first install can reach rollback before a unit is created.
+    # The fake stop returns systemd's rc=5 for this genuinely absent unit;
+    # rollback must not invoke it.
+    BACKEND_ACTIVE_BEFORE=not-found BACKEND_ENABLED_BEFORE=not-found
+    rm -rf "$BACKEND_INSTALL_DIR" "$BACKEND_SYSTEMD_DIR"
+    BACKEND_INSTALL_DIR_BEFORE=0 BACKEND_STATE_DIR_BEFORE=0 BACKEND_SYSTEMD_DIR_BEFORE=0
+    rm -f "$BACKEND_SNAPSHOT/booking_service.py" "$BACKEND_SNAPSHOT/unit"
   fi
   PROMOTED=0
   rollback "matrix $mode" >/dev/null 2>&1 || true
@@ -102,16 +118,32 @@ run_case() {
   if [[ "$mode" == upgrade ]]; then
     cmp -s "$BACKEND_INSTALL_DIR/booking_service.py" "$BACKEND_SNAPSHOT/booking_service.py"
     cmp -s "$BACKEND_UNIT_PATH" "$BACKEND_SNAPSHOT/unit"
+    cmp -s "$BACKEND_ENV_FILE" "$BACKEND_SNAPSHOT/environment"
+    cmp -s "$BACKEND_CADDYFILE" "$BACKEND_SNAPSHOT/Caddyfile"
     assert_equal "$(cat "$STATE/active")" inactive
+    assert_equal "$(cat "$STATE/enabled")" disabled
     [[ ! -e "$BACKEND_SYSTEMD_WANTS_DIR/likar-poruch-booking.service" ]]
     [[ "$(grep -m1 '^stop$' "$SYSTEMCTL_LOG")" == stop ]]
-    assert_topology
-  else
+    assert_topology upgrade
+  elif [[ "$mode" == first-install ]]; then
     [[ ! -e "$BACKEND_UNIT_PATH" && ! -L "$BACKEND_SYSTEMD_WANTS_DIR/likar-poruch-booking.service" ]]
     [[ "$(grep -m1 '^stop$' "$SYSTEMCTL_LOG")" == stop ]]
     [[ "$(grep -m1 '^disable$' "$SYSTEMCTL_LOG")" == disable ]]
+    cmp -s "$BACKEND_ENV_FILE" "$BACKEND_SNAPSHOT/environment"
+    cmp -s "$BACKEND_CADDYFILE" "$BACKEND_SNAPSHOT/Caddyfile"
+    assert_equal "$(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true)" not-found
+    assert_equal "$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true)" not-found
+    assert_topology first-install
+  else
+    [[ ! -e "$BACKEND_UNIT_PATH" && ! -e "$BACKEND_SYSTEMD_DIR" ]]
+    ! grep -q '^stop$' "$SYSTEMCTL_LOG"
+    ! grep -q '^disable$' "$SYSTEMCTL_LOG"
+    cmp -s "$BACKEND_ENV_FILE" "$BACKEND_SNAPSHOT/environment"
+    cmp -s "$BACKEND_CADDYFILE" "$BACKEND_SNAPSHOT/Caddyfile"
+    assert_topology first-install-absent
   fi
 }
 run_case upgrade
 run_case first-install
-printf 'outer deploy rollback matrix passed: inactive upgrade, first-install absent unit, stop rc=5 avoidance, disable-before-remove, dangling symlink semantics, bytes, state, and topology\n'
+run_case first-install-absent
+printf 'outer deploy rollback matrix passed: inactive upgrade, first-install present and absent units, stop rc=5 avoidance, disable-before-remove, dangling symlink semantics, bytes, state, and topology\n'
