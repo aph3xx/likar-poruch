@@ -33,6 +33,7 @@ PHONE_MIN_DIGITS = 10
 PHONE_MAX_DIGITS = 15
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PHONE_PATTERN = re.compile(r"^\+?[0-9 .()\-]+$")
+CONTENT_LENGTH_PATTERN = re.compile(r"^[0-9]+$")
 
 
 
@@ -86,7 +87,8 @@ class BookingRepository:
                 requested_date TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 status TEXT NOT NULL CHECK (status = 'pending'),
-                fingerprint TEXT NOT NULL UNIQUE
+                fingerprint TEXT NOT NULL UNIQUE,
+                is_smoke INTEGER NOT NULL DEFAULT 0 CHECK (is_smoke IN (0, 1))
             );
             CREATE INDEX IF NOT EXISTS booking_requests_created_at_idx ON booking_requests(created_at);
             CREATE TRIGGER IF NOT EXISTS booking_requests_no_update
@@ -95,22 +97,46 @@ class BookingRepository:
             BEFORE DELETE ON booking_requests BEGIN SELECT RAISE(ABORT, 'append_only'); END;
             """
         )
+        columns = {row[1] for row in self.connection.execute("PRAGMA table_info(booking_requests)")}
+        if "is_smoke" not in columns:
+            self.connection.execute("ALTER TABLE booking_requests ADD COLUMN is_smoke INTEGER NOT NULL DEFAULT 0")
         self.connection.commit()
 
-    def create(self, name: str, phone: str, requested_date: str, created_at: str) -> str | None:
+    def create(self, name: str, phone: str, requested_date: str, created_at: str, *, is_smoke: bool = False) -> str | None:
         fingerprint = hashlib.sha256(f"{name}\x00{phone}\x00{requested_date}".encode()).hexdigest()
         request_id = secrets.token_urlsafe(18)
         with self.lock:
             try:
                 self.connection.execute(
-                    "INSERT INTO booking_requests (id, name, phone, requested_date, created_at, status, fingerprint) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
-                    (request_id, name, phone, requested_date, created_at, fingerprint),
+                    "INSERT INTO booking_requests (id, name, phone, requested_date, created_at, status, fingerprint, is_smoke) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)",
+                    (request_id, name, phone, requested_date, created_at, fingerprint, int(is_smoke)),
                 )
                 self.connection.commit()
             except sqlite3.IntegrityError:
                 self.connection.rollback()
                 return None
         return request_id
+
+    def delete_smoke(self, request_id: str, token: str, expected_token: str) -> bool:
+        """Privileged cleanup for rows explicitly marked as smoke traffic."""
+        if not expected_token or not secrets.compare_digest(token, expected_token):
+            return False
+        with self.lock:
+            row = self.connection.execute(
+                "SELECT is_smoke FROM booking_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+            if not row or row["is_smoke"] != 1:
+                return False
+            self.connection.execute("DROP TRIGGER booking_requests_no_delete")
+            try:
+                self.connection.execute("DELETE FROM booking_requests WHERE id = ? AND is_smoke = 1", (request_id,))
+                self.connection.commit()
+            finally:
+                self.connection.execute(
+                    "CREATE TRIGGER IF NOT EXISTS booking_requests_no_delete BEFORE DELETE ON booking_requests BEGIN SELECT RAISE(ABORT, 'append_only'); END"
+                )
+                self.connection.commit()
+        return True
 
     def get(self, request_id: str) -> sqlite3.Row | None:
         with self.lock:
@@ -134,6 +160,11 @@ class BookingHandler(BaseHTTPRequestHandler):
         return
 
     def _send_json(self, status: int, payload: dict[str, str]) -> None:
+        if status == HTTPStatus.NO_CONTENT:
+            self.send_response(status)
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -162,19 +193,16 @@ class BookingHandler(BaseHTTPRequestHandler):
         if content_type != "application/json":
             self._error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported_content_type")
             return
-        content_length = self.headers.get("Content-Length")
-        if content_length is None:
-            self._error(HTTPStatus.LENGTH_REQUIRED, "content_length_required")
+        content_lengths = self.headers.get_all("Content-Length", [])
+        if len(content_lengths) != 1 or not CONTENT_LENGTH_PATTERN.fullmatch(content_lengths[0].strip()):
+            self._error(HTTPStatus.BAD_REQUEST, "ambiguous_framing")
             return
-        try:
-            length = int(content_length)
-        except ValueError:
-            length = MAX_BODY_BYTES + 1
+        length = int(content_lengths[0].strip())
         if length < 0 or length > MAX_BODY_BYTES:
             self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "body_too_large")
             return
-        if self.headers.get("Transfer-Encoding"):
-            self._error(HTTPStatus.LENGTH_REQUIRED, "content_length_required")
+        if self.headers.get_all("Transfer-Encoding", []):
+            self._error(HTTPStatus.BAD_REQUEST, "ambiguous_framing")
             return
         try:
             raw = self.rfile.read(length)
@@ -204,7 +232,10 @@ class BookingHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(error))
             return
         created_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        request_id = self.server.repository.create(name, phone, requested_date, created_at)
+        smoke_token = self.headers.get("X-Booking-Smoke-Token", "")
+        expected_smoke_token = getattr(self.server, "smoke_token", "")
+        is_smoke = bool(expected_smoke_token and secrets.compare_digest(smoke_token, expected_smoke_token))
+        request_id = self.server.repository.create(name, phone, requested_date, created_at, is_smoke=is_smoke)
         if request_id is None:
             self._error(HTTPStatus.CONFLICT, "duplicate_request")
             return
@@ -217,12 +248,27 @@ class BookingHandler(BaseHTTPRequestHandler):
         self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
 
     def do_DELETE(self) -> None:
-        self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
+        prefix = "/booking-requests/"
+        if not self.path.startswith(prefix) or not self.path[len(prefix):]:
+            self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
+            return
+        token = self.headers.get("X-Booking-Maintenance-Token", "")
+        expected = getattr(self.server, "smoke_token", "")
+        if self.server.repository.delete_smoke(self.path[len(prefix):], token, expected):
+            self._send_json(HTTPStatus.NO_CONTENT, {})
+        else:
+            self._error(HTTPStatus.NOT_FOUND, "not_found")
 
     def do_HEAD(self) -> None:
         self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
 
     def do_OPTIONS(self) -> None:
+        self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
+
+    def do_CONNECT(self) -> None:
+        self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
+
+    def do_TRACE(self) -> None:
         self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method_not_allowed")
 
     @staticmethod
@@ -309,6 +355,7 @@ def create_server(database_path: str | Path, host: str = "127.0.0.1", port: int 
     server.repository = repository
     server.request_times = defaultdict(deque)
     server.request_times_lock = threading.Lock()
+    server.smoke_token = __import__("os").environ.get("BOOKING_SMOKE_TOKEN", "")
     return server
 
 

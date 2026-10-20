@@ -336,6 +336,10 @@ try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 800 },
   });
+  if (process.env.QA_BOOKING_SMOKE_TOKEN)
+    await page.addInitScript((token) => {
+      window.__BOOKING_SMOKE_TOKEN = token;
+    }, process.env.QA_BOOKING_SMOKE_TOKEN);
   const retainedRoutes = [
     "/",
     "/posluhy/",
@@ -392,9 +396,10 @@ try {
   });
   const requests = [];
   const bookingBodies = [];
-  if (process.env.QA_MOCK_BOOKING !== "0") {
+  if (process.env.QA_MOCK_BOOKING === "1") {
     await page.route("**/api/booking-requests", async (route) => {
       bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
+      await new Promise((resolve) => setTimeout(resolve, 250));
       await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
     });
   }
@@ -411,17 +416,25 @@ try {
   const firstBookingRequest = page.waitForRequest((request) =>
     request.url().endsWith('/api/booking-requests') && request.method() === 'POST',
   );
+  const firstBookingResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/api/booking-requests') && response.request().method() === 'POST',
+  );
+  const loadingState = page.waitForFunction(() => {
+    const button = document.querySelector('[data-appointment-form] button[type="submit"]');
+    const label = document.querySelector('[data-submit-label]');
+    return button instanceof HTMLButtonElement && button.disabled && label?.textContent === 'Надсилаємо…';
+  });
   await booking.locator('button[type="submit"]').click();
+  await loadingState;
   const submittedRequest = await firstBookingRequest;
-  if (await booking.locator('button[type="submit"]').isDisabled() === false && /Надсилаємо/.test(await booking.locator('[data-submit-label]').innerText()))
-    throw new Error("booking submit did not enter loading state");
+  const submittedResponse = await firstBookingResponse;
   const submittedBody = JSON.parse(submittedRequest.postData() || '{}');
-  if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380****4567","date":"2099-01-01"}')
+  if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
     throw new Error("booking request values were not submitted exactly");
   await page.locator('[data-submit-status]').waitFor({ state: 'visible' });
-  if (process.env.QA_MOCK_BOOKING !== "0" && bookingBodies.length !== 1)
+  if (process.env.QA_MOCK_BOOKING === "1" && bookingBodies.length !== 1)
     throw new Error(`expected exactly one mocked booking request, got ${bookingBodies.length}`);
-  if (JSON.stringify(bookingBodies[0] || submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380****4567","date":"2099-01-01"}')
+  if (JSON.stringify(bookingBodies[0] || submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
     throw new Error("booking request values were not submitted exactly");
   if (
     !/запит на запис надіслано/i.test(
@@ -431,6 +444,9 @@ try {
     throw new Error("booking success status missing");
   if (await page.evaluate(() => (window).__bookingStorageWrites.length))
     throw new Error("booking submit wrote to localStorage");
+  if (submittedResponse.status() !== 201)
+    throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
+  const submittedId = JSON.parse(await submittedResponse.text()).id;
   const unexpectedBookingRequests = requests.filter(({ url, method }) => {
     if (url.includes("_astro")) return false;
     const requestUrl = new URL(url);
@@ -440,8 +456,18 @@ try {
   if (unexpectedBookingRequests.length)
     throw new Error("booking submit made an unexpected request");
   if (navigations.length) throw new Error("booking submit navigated");
+  if (process.env.QA_BOOKING_SMOKE_TOKEN) {
+    const cleanupStatus = await page.evaluate(async ({ id, token }) => {
+      const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
+        method: "DELETE",
+        headers: { "X-Booking-Maintenance-Token": token },
+      });
+      return response.status;
+    }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
+    if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
+  }
   await page.unroute("**/api/booking-requests");
-  if (process.env.QA_MOCK_BOOKING !== "0") {
+  if (process.env.QA_MOCK_BOOKING === "1") {
     await page.route("**/api/booking-requests", async (route) => {
       await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
     });
@@ -454,7 +480,7 @@ try {
   )
     throw new Error("retryable server error status missing");
   if (await booking.locator('[name="name"]').inputValue() !== "Тест Пацієнт" ||
-      await booking.locator('[name="phone"]').inputValue() !== "+380****4567" ||
+      await booking.locator('[name="phone"]').inputValue() !== "+380671234567" ||
       await booking.locator('[name="date"]').inputValue() !== "2099-01-01")
     throw new Error("booking values were not retained after server failure");
   await navigateAndAssertResources(page, `${base}/`);

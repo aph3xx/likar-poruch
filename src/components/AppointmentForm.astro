@@ -9,7 +9,7 @@ const { compact = false } = Astro.props;
     <p>Ми отримаємо ваш запит на запис. Не додавайте медичні дані — форма містить лише необхідну контактну інформацію.</p>
   </div>
 
-  <form class="appointment-form" method="post" action={`${import.meta.env.BASE_URL}api/booking-requests`} data-appointment-form aria-describedby="booking-noscript-help" novalidate>
+  <form class="appointment-form" method="post" action={`${import.meta.env.BASE_URL}api/booking-requests`} onsubmit="return false" data-appointment-form aria-describedby="booking-noscript-help" novalidate>
     <noscript>
       <p id="booking-noscript-help" class="noscript-help" role="alert">Для безпечного надсилання запиту увімкніть JavaScript або зателефонуйте до клініки. Дані не додаються до адреси сторінки.</p>
     </noscript>
@@ -159,7 +159,13 @@ const { compact = false } = Astro.props;
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...((window as Window & { __BOOKING_SMOKE_TOKEN?: string }).__BOOKING_SMOKE_TOKEN
+              ? { 'X-Booking-Smoke-Token': (window as Window & { __BOOKING_SMOKE_TOKEN?: string }).__BOOKING_SMOKE_TOKEN as string }
+              : {}),
+          },
           body: JSON.stringify(request),
         });
         if (!response.ok) throw new Error(response.status === 429 ? 'rate_limited' : 'server_error');

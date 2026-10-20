@@ -1,5 +1,5 @@
 import json
-import sqlite3
+import socket
 import threading
 import unittest
 import urllib.error
@@ -90,6 +90,28 @@ class BookingHttpTests(unittest.TestCase):
             urllib.request.urlopen(request)
         self.assertEqual(raised.exception.code, 400)
         self.assertEqual(json.loads(raised.exception.read())["error"], "invalid_json")
+
+    def test_conflicting_content_length_is_rejected(self):
+        body = b'{"name":"Test Patient","phone":"+380671234567","date":"2099-01-01"}'
+        with socket.create_connection(("127.0.0.1", self.server.server_port), timeout=2) as connection:
+            connection.sendall(
+                b"POST /booking-requests HTTP/1.1\r\nHost: localhost\r\n"
+                b"Content-Type: application/json\r\nContent-Length: " + str(len(body)).encode() +
+                b"\r\nContent-Length: 1\r\nConnection: close\r\n\r\n" + body
+            )
+            response = connection.recv(4096)
+        self.assertIn(b" 400 ", response)
+        self.assertIn(b"ambiguous_framing", response)
+
+    def test_smoke_cleanup_requires_marker_and_token(self):
+        self.server.smoke_token = "secret"
+        smoke_id = self.repository.create("Smoke Patient", "+380671234567", "2099-01-01", "2026-01-01T00:00:00Z", is_smoke=True)
+        normal_id = self.repository.create("Normal Patient", "+380671234568", "2099-01-01", "2026-01-01T00:00:00Z")
+        assert smoke_id is not None and normal_id is not None
+        self.assertTrue(self.repository.delete_smoke(smoke_id, "secret", "secret"))
+        self.assertFalse(self.repository.delete_smoke(normal_id, "secret", "secret"))
+        self.assertIsNone(self.repository.get(smoke_id))
+        self.assertIsNotNone(self.repository.get(normal_id))
 
 
 if __name__ == "__main__":

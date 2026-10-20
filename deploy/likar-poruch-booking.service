@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/home/sgdt1a/.local/share/likar-poruch-booking
+EnvironmentFile=-%h/.config/likar-poruch-booking/environment
 Environment=BOOKING_DB=/home/sgdt1a/.local/share/likar-poruch-booking/state/booking.sqlite3
 ExecStart=/usr/bin/python3 /home/sgdt1a/.local/share/likar-poruch-booking/booking_service.py
 Restart=on-failure
