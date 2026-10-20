@@ -8,7 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "npm run build && node scripts/validate-build.mjs && node scripts/validate-consent.mjs && node --test scripts/validate-build.test.mjs scripts/browser-qa-boundary.test.mjs",
+    "test": "npm run build && node scripts/validate-build.mjs && node scripts/validate-consent.mjs && node --test scripts/validate-build.test.mjs scripts/browser-qa-boundary.test.mjs && python3 -m unittest backend.test_booking_service",
     "qa:browser": "node scripts/browser-qa.mjs",
     "deploy:sur": "bash scripts/deploy-sur.sh"
   },

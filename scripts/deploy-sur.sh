@@ -75,6 +75,12 @@ if ! QA_BASE_URL="https://sur.kyiv.ua:10443/likar-poruch" \
   rollback "live gateway browser QA failed"
 fi
 
+# Install the backend only after the static artifact and browser gate pass. The
+# installer is transactional, so failures cannot leave a mixed gateway.
+if [[ "${SKIP_BOOKING_BACKEND:-0}" != "1" ]]; then
+  bash "$REPO_ROOT/scripts/install-booking-backend.sh" "$REPO_ROOT" || rollback "booking backend install failed"
+fi
+
 rm -rf "$PREVIOUS"
 printf 'Deployed commit %s to %s\n' "$LOCAL_SHA" "https://sur.kyiv.ua/likar-poruch/"
 printf 'Verified index SHA-256: %s\n' "$LIVE_HASH"
