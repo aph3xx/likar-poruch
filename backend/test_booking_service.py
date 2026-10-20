@@ -99,7 +99,13 @@ class BookingHttpTests(unittest.TestCase):
                 b"Content-Type: application/json\r\nContent-Length: " + str(len(body)).encode() +
                 b"\r\nContent-Length: 1\r\nConnection: close\r\n\r\n" + body
             )
-            response = connection.recv(4096)
+            chunks = []
+            while True:
+                chunk = connection.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            response = b"".join(chunks)
         self.assertIn(b" 400 ", response)
         self.assertIn(b"ambiguous_framing", response)
 
