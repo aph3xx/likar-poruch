@@ -180,8 +180,8 @@ try {
     const faqText = JSON.stringify(faqSchema).toLowerCase();
     assertNoLocalDraftDeliveryPromises(faqText, `${viewport.name}: FAQ JSON-LD`);
     const appointmentFormCopy = await page.locator('.appointment-card').innerText();
-    if (!/локальна\s+чернетка/i.test(appointmentFormCopy) || !/не надсилає/i.test(appointmentFormCopy))
-      throw new Error(`${viewport.name}: appointment form local-draft disclosure missing`);
+    if (/локальна\s+чернетка|зберегти\s+чернетку/i.test(appointmentFormCopy) || !/надсила/i.test(appointmentFormCopy))
+      throw new Error(`${viewport.name}: booking request copy is stale or missing`);
     for (const banned of [
       "каталог лікарів",
       "демонстраційні профілі",
@@ -378,35 +378,45 @@ try {
   const names = await fields.evaluateAll((nodes) =>
     nodes.map((node) => node.getAttribute("name")),
   );
-  if (JSON.stringify(names) !== '["name","phone","datetime"]')
+  if (JSON.stringify(names) !== '["name","phone","date"]')
     throw new Error(`unexpected booking fields: ${names.join(",")}`);
   await booking.locator('button[type="submit"]').click();
   if (!(await page.locator("[data-error-summary]").isVisible()))
     throw new Error("booking validation summary missing");
   await booking.locator('[name="name"]').fill("Тест Пацієнт");
   await booking.locator('[name="phone"]').fill("+380671234567");
-  await booking.locator('[name="datetime"]').fill("2099-01-01T10:30");
+  await booking.locator('[name="date"]').fill("2099-01-01");
   const navigations = [];
   page.on("framenavigated", (frame) => {
     if (frame === page.mainFrame()) navigations.push(frame.url());
   });
   const requests = [];
+  const bookingBodies = [];
+  await page.route("**/api/booking-requests", async (route) => {
+    bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
+  });
   page.on("request", (request) => requests.push(request.url()));
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    const writes = [];
+    Storage.prototype.setItem = function (key, value) {
+      if (key.includes("appointment") || key.includes("booking")) writes.push([key, value]);
+      return original.call(this, key, value);
+    };
+    (window).__bookingStorageWrites = writes;
+  });
   await booking.locator('button[type="submit"]').click();
-  const saved = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("likar:appointment_request") || "null"),
-  );
+  if (JSON.stringify(bookingBodies[0]) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
+    throw new Error("booking request values were not submitted exactly");
   if (
-    JSON.stringify(saved) !==
-    '{"name":"Тест Пацієнт","phone":"+380671234567","datetime":"2099-01-01T10:30"}'
-  )
-    throw new Error("booking draft values were not stored exactly");
-  if (
-    !/чернетку збережено/i.test(
+    !/запит на запис надіслано/i.test(
       await page.locator("[data-submit-status]").innerText(),
     )
   )
     throw new Error("booking success status missing");
+  if (await page.evaluate(() => (window).__bookingStorageWrites.length))
+    throw new Error("booking submit wrote to localStorage");
   if (
     requests.some(
       (url) => !url.includes("_astro") && !url.includes("127.0.0.1"),
@@ -414,27 +424,17 @@ try {
   )
     throw new Error("booking submit made a network request");
   if (navigations.length) throw new Error("booking submit navigated");
-  const denied = await page.evaluate(() => {
-    localStorage.removeItem("likar:appointment_request");
-    Storage.prototype.setItem = function () {
-      throw new DOMException("blocked", "SecurityError");
-    };
-    return true;
+  await page.unroute("**/api/booking-requests");
+  await page.route("**/api/booking-requests", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
   });
-  if (!denied) throw new Error("storage denial setup failed");
   await booking.locator('button[type="submit"]').click();
   if (
-    !/не вдалося зберегти/i.test(
+    !/не вдалося надіслати/i.test(
       await page.locator("[data-submit-status]").innerText(),
     )
   )
-    throw new Error("storage-denied error status missing");
-  if (
-    await page.evaluate(() =>
-      Boolean(localStorage.getItem("likar:appointment_request")),
-    )
-  )
-    throw new Error("storage-denied path wrote a draft");
+    throw new Error("retryable server error status missing");
   await navigateAndAssertResources(page, `${base}/`);
   if (await page.locator('link[rel="alternate"][hreflang="ru"]').count())
     throw new Error("retired Russian hreflang present");
@@ -453,8 +453,8 @@ try {
   for (const stale of ["sms", "адміністратор зв’яжеться", "адміністратор погодить"])
     if (homepageText.includes(stale))
       throw new Error(`booking contract contains stale claim: ${stale}`);
-  if (!homepageText.includes("локальн") || !homepageText.includes("зателефонуйте до клініки"))
-    throw new Error("local-draft phone handoff copy missing");
+  if (homepageText.includes("локальн") || !homepageText.includes("запит"))
+    throw new Error("booking request copy missing or stale");
   await navigateAndAssertResources(page, `${base}/kontakty/`);
   const contactsClinic = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
     nodes.flatMap((n) => {
@@ -472,7 +472,7 @@ try {
     throw new Error("stale aggregator schema found");
   await page.close();
   console.log(
-    "Clinic browser QA passed across retained Ukrainian routes at 320, 360, 390, 640, 768, 1024, 1280, and 1440px: 44px standalone targets, consent, booking persistence, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.",
+    "Clinic browser QA passed across retained Ukrainian routes at 320, 360, 390, 640, 768, 1024, 1280, and 1440px: 44px standalone targets, consent, booking POST/accepted/retry states, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.",
   );
 } finally {
   await browser.close();

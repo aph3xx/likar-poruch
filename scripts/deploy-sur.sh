@@ -27,6 +27,10 @@ npm test
 npm audit --omit=dev
 git diff --check
 
+if [[ "${SKIP_BOOKING_BACKEND:-0}" != "1" ]]; then
+  bash "$REPO_ROOT/scripts/install-booking-backend.sh" "$REPO_ROOT"
+fi
+
 PARENT=$(dirname "$TARGET")
 mkdir -p "$PARENT"
 NEXT=$(mktemp -d "$PARENT/.likar-poruch-site.next.XXXXXX")

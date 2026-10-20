@@ -17,7 +17,7 @@ npm test
 npm run qa:browser
 ```
 
-`npm test` builds the static site and verifies metadata, one H1 per page, Ukrainian language metadata, canonical URLs, hreflang, sitemap, robots, and internal links. Browser QA checks 360, 768, 1280, and 1440 pixel layouts, mobile navigation, appointment-form validation, phone CTAs, MedicalClinic structured data, browser errors, and horizontal overflow.
+`npm test` builds the static site, verifies metadata and internal links, and exercises the real localhost booking HTTP boundary against a temporary SQLite database. Browser QA checks responsive layouts, mobile navigation, the three-field booking request flow, phone CTAs, MedicalClinic structured data, browser errors, and horizontal overflow.
 
 ## Content management
 
@@ -74,7 +74,7 @@ The deployment command builds with `PUBLIC_SITE_URL=https://sur.kyiv.ua`, runs t
 ## Site structure
 
 - homepage focused on the medical practice and appointment conversion
-- accessible Ukrainian appointment form with a privacy-preserving local draft and phone handoff
+- accessible Ukrainian appointment form that sends a three-field booking request to the private backend
 - services for family medicine, endocrinology, and on-site rapid diagnostics
 - Ukrainian landing, services, contacts, and booking routes for search visibility in Ukraine
 - about, contacts, privacy, and educational articles
