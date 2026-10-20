@@ -22,7 +22,7 @@ test("browser QA keeps a bounded manifest fetch assertion", () => {
 
 test("browser QA protects every post-201 assertion with smoke cleanup", () => {
   assert.match(source, /let submittedId = null;\s+try \{/);
-  assert.match(source, /const submittedResponseBody = JSON\.parse\(await boundedResponseText\(submittedResponse\)\);\s+submittedId = await submittedResponse\.headerValue\("x-booking-request-id"\);\s+submittedId \|\|= submittedResponseBody\.id;\s+if \(!submittedId\)/);
+  assert.match(source, /submittedId = await submittedResponse\.headerValue\("x-booking-request-id"\);\s+const submittedResponseBody = JSON\.parse\(await boundedResponseText\(submittedResponse\)\);\s+submittedId \|\|= submittedResponseBody\.id;\s+if \(!submittedId\)/);
   assert.match(source, /QA_FORCE_POST_201_EARLY_ASSERTION_FAILURE/);
   assert.match(source, /QA_FORCE_POST_201_ASSERTION_FAILURE/);
   assert.match(source, /finally \{\s+if \(process\.env\.QA_BOOKING_SMOKE_TOKEN && submittedId\)/);
@@ -35,6 +35,12 @@ test("browser QA's early post-201 probe runs before request assertions", () => {
   const requestBodyAssertion = source.indexOf('booking request values were not submitted exactly');
   assert.ok(idAssignment >= 0 && earlyProbe > idAssignment);
   assert.ok(requestBodyAssertion > earlyProbe);
+});
+
+test("browser QA has an executable malformed-body cleanup regression", () => {
+  assert.match(source, /QA_MOCK_BOOKING_BODY_FAILURE/);
+  assert.match(source, /mockBookingDeleteCount !== 1/);
+  assert.match(source, /mockBookingRows\.size !== 0/);
 });
 
 test("browser QA applies the stale-copy guard to routes and FAQ JSON-LD", () => {
