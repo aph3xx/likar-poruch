@@ -1,6 +1,20 @@
 import { chromium } from "@playwright/test";
 import fs from "node:fs/promises";
 
+const boundedResponseText = async (response, timeoutMs = 5_000) => {
+  let timer;
+  try {
+    return await Promise.race([
+      response.text(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("response body timeout")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const base = process.env.QA_BASE_URL || "http://127.0.0.1:4321/likar-poruch";
 const resolverRules = process.env.QA_HOST_RESOLVER_RULES;
 await fs.mkdir("artifacts/qa", { recursive: true });
@@ -63,6 +77,10 @@ const assertNoLocalDraftDeliveryPromises = (copy, context) => {
     "погодить дату",
     "зв’яжеться з вами",
     "зв'яжеться з вами",
+    "локальна чернетка",
+    "лише на цьому пристрої",
+    "не надсилається до медичного центру",
+    "передати запит",
   ]) {
     if (normalized.includes(banned))
       throw new Error(`${context}: local-draft form promises clinic delivery: ${banned}`);
@@ -180,8 +198,8 @@ try {
     const faqText = JSON.stringify(faqSchema).toLowerCase();
     assertNoLocalDraftDeliveryPromises(faqText, `${viewport.name}: FAQ JSON-LD`);
     const appointmentFormCopy = await page.locator('.appointment-card').innerText();
-    if (!/локальна\s+чернетка/i.test(appointmentFormCopy) || !/не надсилає/i.test(appointmentFormCopy))
-      throw new Error(`${viewport.name}: appointment form local-draft disclosure missing`);
+    if (/локальна\s+чернетка|зберегти\s+чернетку/i.test(appointmentFormCopy) || !/надсила/i.test(appointmentFormCopy))
+      throw new Error(`${viewport.name}: booking request copy is stale or missing`);
     for (const banned of [
       "каталог лікарів",
       "демонстраційні профілі",
@@ -336,6 +354,10 @@ try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 800 },
   });
+  if (process.env.QA_BOOKING_SMOKE_TOKEN)
+    await page.addInitScript((token) => {
+      window.__BOOKING_SMOKE_TOKEN = token;
+    }, process.env.QA_BOOKING_SMOKE_TOKEN);
   const retainedRoutes = [
     "/",
     "/posluhy/",
@@ -369,6 +391,27 @@ try {
         );
     }
   }
+  const requiredRouteBodies = [
+    ["/", "Здоров’я ближче"],
+    ["/kontakty/", "Збережіть локальну чернетку"],
+    ["/privacy/", "Форма запису"],
+    ["/zapys/", "Чернетка залишиться"],
+  ];
+  for (const [route, requiredText] of requiredRouteBodies) {
+    await navigateAndAssertResources(page, `${base}${route}`);
+    const body = await page.locator("body").innerText();
+    if (!body.includes(requiredText))
+      throw new Error(`${route}: required route body copy missing: ${requiredText}`);
+  }
+  await navigateAndAssertResources(page, `${base}/`);
+  const faqEntries = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
+    nodes.flatMap((node) => {
+      const value = JSON.parse(node.textContent || "{}");
+      return Array.isArray(value) ? value : [value];
+    }).find((value) => value["@type"] === "FAQPage")?.mainEntity || [],
+  );
+  if (faqEntries.length < 1)
+    throw new Error("homepage: FAQ JSON-LD is missing");
   await navigateAndAssertResources(page, `${base}/zapys/`);
   const booking = page.locator("[data-appointment-form]");
   if (!(await booking.isVisible())) throw new Error("booking form missing");
@@ -378,63 +421,122 @@ try {
   const names = await fields.evaluateAll((nodes) =>
     nodes.map((node) => node.getAttribute("name")),
   );
-  if (JSON.stringify(names) !== '["name","phone","datetime"]')
+  if (JSON.stringify(names) !== '["name","phone","date"]')
     throw new Error(`unexpected booking fields: ${names.join(",")}`);
   await booking.locator('button[type="submit"]').click();
   if (!(await page.locator("[data-error-summary]").isVisible()))
     throw new Error("booking validation summary missing");
   await booking.locator('[name="name"]').fill("Тест Пацієнт");
   await booking.locator('[name="phone"]').fill("+380671234567");
-  await booking.locator('[name="datetime"]').fill("2099-01-01T10:30");
+  await booking.locator('[name="date"]').fill("2099-01-01");
   const navigations = [];
   page.on("framenavigated", (frame) => {
     if (frame === page.mainFrame()) navigations.push(frame.url());
   });
   const requests = [];
-  page.on("request", (request) => requests.push(request.url()));
-  await booking.locator('button[type="submit"]').click();
-  const saved = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("likar:appointment_request") || "null"),
+  const bookingBodies = [];
+  if (process.env.QA_MOCK_BOOKING === "1") {
+    await page.route("**/api/booking-requests", async (route) => {
+      bookingBodies.push(JSON.parse(route.request().postData() || "{}"));
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({ status: 201, contentType: "application/json", headers: { "X-Booking-Request-Id": "qa-smoke" }, body: JSON.stringify({ id: "qa-smoke", status: "pending" }) });
+    });
+  }
+  page.on("request", (request) => requests.push({ url: request.url(), method: request.method() }));
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    const writes = [];
+    Storage.prototype.setItem = function (key, value) {
+      if (key.includes("appointment") || key.includes("booking")) writes.push([key, value]);
+      return original.call(this, key, value);
+    };
+    (window).__bookingStorageWrites = writes;
+  });
+  const firstBookingRequest = page.waitForRequest((request) =>
+    request.url().endsWith('/api/booking-requests') && request.method() === 'POST',
   );
+  const firstBookingResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/api/booking-requests') && response.request().method() === 'POST',
+  );
+  const loadingState = page.waitForFunction(() => {
+    const button = document.querySelector('[data-appointment-form] button[type="submit"]');
+    const label = document.querySelector('[data-submit-label]');
+    return button instanceof HTMLButtonElement && button.disabled && label?.textContent === 'Надсилаємо…';
+  });
+  await booking.locator('button[type="submit"]').click();
+  await loadingState;
+  const submittedRequest = await firstBookingRequest;
+  const submittedResponse = await firstBookingResponse;
+  const submittedBody = JSON.parse(submittedRequest.postData() || '{}');
+  if (JSON.stringify(submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
+    throw new Error("booking request values were not submitted exactly");
+  await page.locator('[data-submit-status]').waitFor({ state: 'visible' });
+  if (process.env.QA_MOCK_BOOKING === "1" && bookingBodies.length !== 1)
+    throw new Error(`expected exactly one mocked booking request, got ${bookingBodies.length}`);
+  if (JSON.stringify(bookingBodies[0] || submittedBody) !== '{"name":"Тест Пацієнт","phone":"+380671234567","date":"2099-01-01"}')
+    throw new Error("booking request values were not submitted exactly");
   if (
-    JSON.stringify(saved) !==
-    '{"name":"Тест Пацієнт","phone":"+380671234567","datetime":"2099-01-01T10:30"}'
-  )
-    throw new Error("booking draft values were not stored exactly");
-  if (
-    !/чернетку збережено/i.test(
+    !/запит на запис надіслано/i.test(
       await page.locator("[data-submit-status]").innerText(),
     )
   )
     throw new Error("booking success status missing");
-  if (
-    requests.some(
-      (url) => !url.includes("_astro") && !url.includes("127.0.0.1"),
-    )
-  )
-    throw new Error("booking submit made a network request");
-  if (navigations.length) throw new Error("booking submit navigated");
-  const denied = await page.evaluate(() => {
-    localStorage.removeItem("likar:appointment_request");
-    Storage.prototype.setItem = function () {
-      throw new DOMException("blocked", "SecurityError");
-    };
-    return true;
+  if (await page.evaluate(() => (window).__bookingStorageWrites.length))
+    throw new Error("booking submit wrote to localStorage");
+  let submittedId = null;
+  try {
+    if (submittedResponse.status() !== 201)
+      throw new Error(`booking submit returned HTTP ${submittedResponse.status()}`);
+    submittedId = await submittedResponse.headerValue("x-booking-request-id");
+    submittedId ||= JSON.parse(await boundedResponseText(submittedResponse)).id;
+    if (!submittedId) throw new Error("booking response did not provide an id");
+  const unexpectedBookingRequests = requests.filter(({ url, method }) => {
+    if (url.includes("_astro")) return false;
+    const requestUrl = new URL(url);
+    const isBookingPost = requestUrl.pathname.endsWith("/api/booking-requests") && method === "POST";
+    const isBookingDelete = requestUrl.pathname.includes("/api/booking-requests/") && method === "DELETE";
+    return requestUrl.origin !== new URL(page.url()).origin || (!isBookingPost && !isBookingDelete);
   });
-  if (!denied) throw new Error("storage denial setup failed");
+  if (unexpectedBookingRequests.length)
+    throw new Error("booking submit made an unexpected request");
+  if (navigations.length) throw new Error("booking submit navigated");
+
+  await page.unroute("**/api/booking-requests");
+  if (process.env.QA_MOCK_BOOKING === "1") {
+    await page.route("**/api/booking-requests", async (route) => {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "unavailable" }) });
+    });
+  } else if (process.env.QA_BOOKING_SMOKE_TOKEN) {
+    await page.route("**/api/booking-requests", async (route) => {
+      await route.continue({
+        headers: {
+          ...route.request().headers(),
+          "x-booking-smoke-failure": process.env.QA_BOOKING_SMOKE_TOKEN,
+        },
+      });
+    });
+  }
+  const failureResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/api/booking-requests') && response.request().method() === 'POST',
+  );
   await booking.locator('button[type="submit"]').click();
+  const failedBookingResponse = await failureResponse;
   if (
-    !/не вдалося зберегти/i.test(
+    !/не вдалося надіслати/i.test(
       await page.locator("[data-submit-status]").innerText(),
     )
   )
-    throw new Error("storage-denied error status missing");
-  if (
-    await page.evaluate(() =>
-      Boolean(localStorage.getItem("likar:appointment_request")),
-    )
-  )
-    throw new Error("storage-denied path wrote a draft");
+    throw new Error("retryable server error status missing");
+  if (!process.env.QA_MOCK_BOOKING && failedBookingResponse.status() !== 503)
+    throw new Error(`real booking failure returned HTTP ${failedBookingResponse.status()}`);
+  const bookingPostCount = requests.filter(({ url, method }) => url.endsWith('/api/booking-requests') && method === 'POST').length;
+  if (bookingPostCount !== 2)
+    throw new Error(`expected exactly two booking POST requests, got ${bookingPostCount}`);
+
+  if (await booking.locator('[name="name"]').inputValue() !== "Тест Пацієнт" ||
+      await booking.locator('[name="phone"]').inputValue() !== "+380671234567" ||
+      await booking.locator('[name="date"]').inputValue() !== "2099-01-01")
+    throw new Error("booking values were not retained after server failure");
   await navigateAndAssertResources(page, `${base}/`);
   if (await page.locator('link[rel="alternate"][hreflang="ru"]').count())
     throw new Error("retired Russian hreflang present");
@@ -453,8 +555,8 @@ try {
   for (const stale of ["sms", "адміністратор зв’яжеться", "адміністратор погодить"])
     if (homepageText.includes(stale))
       throw new Error(`booking contract contains stale claim: ${stale}`);
-  if (!homepageText.includes("локальн") || !homepageText.includes("зателефонуйте до клініки"))
-    throw new Error("local-draft phone handoff copy missing");
+  if (homepageText.includes("локальн") || !homepageText.includes("запит"))
+    throw new Error("booking request copy missing or stale");
   await navigateAndAssertResources(page, `${base}/kontakty/`);
   const contactsClinic = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
     nodes.flatMap((n) => {
@@ -470,9 +572,49 @@ try {
   await navigateAndAssertResources(page, `${base}/`);
   if (schemas.some((x) => ["ItemList", "ProfilePage"].includes(x["@type"])))
     throw new Error("stale aggregator schema found");
-  await page.close();
+
+  const noJsContext = await browser.newContext({ javaScriptEnabled: false });
+  const noJsPage = await noJsContext.newPage();
+  const noJsPosts = [];
+  noJsPage.on("request", (request) => {
+    if (request.method() === "POST") noJsPosts.push(request.url());
+  });
+  const noJsUrl = `${base}/zapys/`;
+  await noJsPage.goto(noJsUrl, { waitUntil: "domcontentloaded" });
+  const noJsButton = noJsPage.locator('[data-appointment-form] button[type="submit"]');
+  if (!(await noJsButton.isDisabled()))
+    throw new Error("no-JS booking submit must be disabled");
+  await noJsButton.click({ force: true });
+  if (noJsPage.url() !== noJsUrl)
+    throw new Error("no-JS booking interaction navigated");
+  if (noJsPosts.length)
+    throw new Error("no-JS booking interaction submitted a request");
+  await noJsContext.close();
+  } finally {
+    if (process.env.QA_BOOKING_SMOKE_TOKEN && submittedId) {
+      const cleanupStatus = await page.evaluate(async ({ id, token }) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5_000);
+        try {
+          const response = await fetch(`${location.origin}${location.pathname.replace(/\/zapys\/?$/, "")}/api/booking-requests/${id}`, {
+            method: "DELETE",
+            headers: { "X-Booking-Maintenance-Token": token },
+            signal: controller.signal,
+          });
+          return response.status;
+        } finally {
+          clearTimeout(timeout);
+        }
+      }, { id: submittedId, token: process.env.QA_BOOKING_SMOKE_TOKEN });
+      if (cleanupStatus !== 204) throw new Error(`booking smoke cleanup returned HTTP ${cleanupStatus}`);
+      const bookingDeleteCount = requests.filter(({ url, method }) => url.includes('/api/booking-requests/') && method === 'DELETE').length;
+      if (bookingDeleteCount !== 1)
+        throw new Error(`expected exactly one booking cleanup DELETE request, got ${bookingDeleteCount}`);
+    }
+    await page.close();
+  }
   console.log(
-    "Clinic browser QA passed across retained Ukrainian routes at 320, 360, 390, 640, 768, 1024, 1280, and 1440px: 44px standalone targets, consent, booking persistence, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.",
+    "Clinic browser QA passed across retained Ukrainian routes at 320, 360, 390, 640, 768, 1024, 1280, and 1440px: 44px standalone targets, consent, booking POST/accepted/retry states, navigation, phone CTAs, MedicalClinic schema, console, and overflow checks pass.",
   );
 } finally {
   await browser.close();
