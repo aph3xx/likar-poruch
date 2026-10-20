@@ -13,6 +13,7 @@ const removedLocalDraftCopy =
 
 test("appointment form omits the obsolete local-draft notice", () => {
   assert.doesNotMatch(appointmentFormSource, new RegExp(removedLocalDraftCopy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(source, /appointment form local-draft disclosure missing/);
 });
 
 test("browser QA uses explicit first-party completion instead of network-idle", () => {

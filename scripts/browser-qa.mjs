@@ -179,9 +179,6 @@ try {
     });
     const faqText = JSON.stringify(faqSchema).toLowerCase();
     assertNoLocalDraftDeliveryPromises(faqText, `${viewport.name}: FAQ JSON-LD`);
-    const appointmentFormCopy = await page.locator('.appointment-card').innerText();
-    if (!/локальна\s+чернетка/i.test(appointmentFormCopy) || !/не надсилає/i.test(appointmentFormCopy))
-      throw new Error(`${viewport.name}: appointment form local-draft disclosure missing`);
     for (const banned of [
       "каталог лікарів",
       "демонстраційні профілі",
