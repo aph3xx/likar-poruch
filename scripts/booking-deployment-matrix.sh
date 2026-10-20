@@ -21,11 +21,18 @@ unit=${@: -1}
 cmd=${1:-}; [[ "$cmd" == --user ]] && { shift; cmd=${1:-}; }
 case "$cmd" in
   is-active) [[ -f "$state/not-found" && ! -e "${SYSTEMD_DIR:?}/likar-poruch-booking.service" ]] && { printf 'not-found\n'; exit 4; }; [[ -f "$state/active" ]] && cat "$state/active" || { printf 'inactive\n'; exit 3; } ;;
-  is-enabled) [[ -f "$state/enabled" ]] && cat "$state/enabled" || { printf 'not-found\n'; exit 1; } ;;
+  is-enabled)
+    wants="${SYSTEMD_DIR:?}/default.target.wants/likar-poruch-booking.service"
+    [[ ! -e "${SYSTEMD_DIR:?}/likar-poruch-booking.service" ]] && { printf 'not-found\n'; exit 4; }
+    if [[ -L "$wants" ]]; then
+      printf 'enabled\n'; exit 0
+    fi
+    [[ -f "$state/enabled" ]] && cat "$state/enabled" || { printf 'not-found\n'; exit 1; }
+    ;;
   start|restart) printf 'active\n' >"$state/active" ;;
-  stop) printf 'inactive\n' >"$state/active" ;;
-  enable) printf 'enabled\n' >"$state/enabled" ;;
-  disable) [[ -f "$state/enabled" && $(cat "$state/enabled") == disabled ]] || rm -f "$state/enabled" ;;
+  stop) [[ -e "${SYSTEMD_DIR:?}/likar-poruch-booking.service" ]] || exit 5; printf 'inactive\n' >"$state/active" ;;
+  enable) mkdir -p "${SYSTEMD_DIR:?}/default.target.wants"; ln -sfn "../likar-poruch-booking.service" "$SYSTEMD_DIR/default.target.wants/likar-poruch-booking.service"; printf 'enabled\n' >"$state/enabled" ;;
+  disable) rm -f "${SYSTEMD_DIR:?}/default.target.wants/likar-poruch-booking.service"; [[ -e "${SYSTEMD_DIR:?}/likar-poruch-booking.service" ]] && printf 'disabled\n' >"$state/enabled" || rm -f "$state/enabled" ;;
   daemon-reload|reload) : ;;
   *) : ;;
 esac
@@ -67,11 +74,13 @@ run_case() {
     if [[ "$phase" == disable ]]; then
       printf 'disabled\n' >"$STATE/enabled"
     else
+      mkdir -p "$SYSTEMD_DIR/default.target.wants"
+      ln -sfn ../likar-poruch-booking.service "$SYSTEMD_DIR/default.target.wants/likar-poruch-booking.service"
       printf 'enabled\n' >"$STATE/enabled"
     fi
   else
     rm -f "$STATE/active" "$STATE/enabled"
-    [[ "$phase" == disable ]] && printf 'disabled\n' >"$STATE/enabled"
+    [[ "$phase" == disable && "$mode" == upgrade ]] && printf 'disabled\n' >"$STATE/enabled"
   fi
   local before_active before_enabled before_caddy before_backend before_unit before_env
   local before_install_dir before_state_dir before_systemd_dir before_env_dir
@@ -107,6 +116,7 @@ run_case() {
   [[ $([[ -f "$SYSTEMD_DIR/likar-poruch-booking.service" ]] && sha256sum "$SYSTEMD_DIR/likar-poruch-booking.service" | cut -d' ' -f1 || printf absent) == "$before_unit" ]]
   [[ $(systemctl --user is-active likar-poruch-booking.service 2>/dev/null || true) == "$before_active" ]]
   [[ $(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null || true) == "$before_enabled" ]]
+  [[ ! -L "$SYSTEMD_DIR/default.target.wants/likar-poruch-booking.service" ]] || [[ "$before_enabled" == enabled ]]
   [[ $([[ -d "$BOOKING_USER_HOME/.local/share/likar-poruch-booking" ]] && printf present || printf absent) == "$before_install_dir" ]]
   [[ $([[ -d "$BOOKING_USER_HOME/.local/share/likar-poruch-booking/state" ]] && printf present || printf absent) == "$before_state_dir" ]]
   [[ $([[ -d "$SYSTEMD_DIR" ]] && printf present || printf absent) == "$before_systemd_dir" ]]
@@ -116,12 +126,24 @@ run_case() {
 # Every injection phase is exercised in both disposable first-install and
 # upgrade paths; service probes cover active, inactive, and not-found states.
 for phase in backend-copy backend-promote unit-promote caddy-write caddy-validate daemon-reload start enable disable health gateway-reload; do
-  run_case inactive "$phase" first-install
+  [[ "$phase" != disable ]] && run_case inactive "$phase" first-install
   run_case inactive "$phase" upgrade
   # A not-found unit cannot reach start/disable: the installer only starts an
   # existing inactive unit and only disables an explicitly disabled unit.
   [[ "$phase" == start || "$phase" == disable ]] || run_case not-found "$phase" first-install
 done
 run_case active restart upgrade
+
+# Production systemd reports a removed unit as not-found even if a stale wants
+# symlink remains. Keep this probe explicit so the fake cannot mask rollback
+# ordering errors by treating the dangling link as enabled.
+rm -rf "$SYSTEMD_DIR"
+mkdir -p "$SYSTEMD_DIR/default.target.wants"
+ln -s ../likar-poruch-booking.service "$SYSTEMD_DIR/default.target.wants/likar-poruch-booking.service"
+set +e
+removed_enabled=$(systemctl --user is-enabled likar-poruch-booking.service 2>/dev/null)
+removed_rc=$?
+set -e
+[[ "$removed_rc" == 4 && "$removed_enabled" == not-found ]]
 
 printf 'booking deployment matrix passed: executed installer rollback across first-install/upgrade, active/inactive/not-found, exact backend/unit/env/Caddy bytes, directories, and service state\n'

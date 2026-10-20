@@ -21,10 +21,13 @@ ROLLBACK_ACTIVE=0
 INSTALL_DIR_BEFORE=0
 STATE_DIR_BEFORE=0
 SYSTEMD_DIR_BEFORE=0
+SYSTEMD_WANTS_DIR="$SYSTEMD_DIR/default.target.wants"
+SYSTEMD_WANTS_DIR_BEFORE=0
 BOOKING_ENV_DIR_BEFORE=0
 [[ -d "$INSTALL_DIR" ]] && INSTALL_DIR_BEFORE=1
 [[ -d "$STATE_DIR" ]] && STATE_DIR_BEFORE=1
 [[ -d "$SYSTEMD_DIR" ]] && SYSTEMD_DIR_BEFORE=1
+[[ -d "$SYSTEMD_WANTS_DIR" ]] && SYSTEMD_WANTS_DIR_BEFORE=1
 [[ -d "$BOOKING_ENV_DIR" ]] && BOOKING_ENV_DIR_BEFORE=1
 ACTIVE_BEFORE=$(systemctl --user is-active "$UNIT_NAME" 2>/dev/null || true)
 ENABLED_BEFORE=$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)
@@ -61,7 +64,7 @@ rollback() {
   set +e
   local rollback_failed=0
   rm -f "$INSTALL_DIR/booking_service.py.new" "$UNIT_PATH.new"
-  if [[ "$ACTIVE_BEFORE" == active || ! -f "$BACKUP_DIR/unit" ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
+  if [[ "$ACTIVE_BEFORE" == active || ( ! -f "$BACKUP_DIR/unit" && -e "$UNIT_PATH" ) ]]; then systemctl --user stop "$UNIT_NAME" >/dev/null 2>&1 || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/booking_service.py" ]]; then cp "$BACKUP_DIR/booking_service.py" "$INSTALL_DIR/booking_service.py" || rollback_failed=1; else rm -f "$INSTALL_DIR/booking_service.py" || rollback_failed=1; fi
   if [[ -f "$BACKUP_DIR/unit" ]]; then
     cp "$BACKUP_DIR/unit" "$UNIT_PATH" || rollback_failed=1
@@ -93,6 +96,7 @@ rollback() {
   [[ "$(systemctl --user is-enabled "$UNIT_NAME" 2>/dev/null || true)" == "$ENABLED_BEFORE" ]] || rollback_failed=1
   [[ "$INSTALL_DIR_BEFORE" == 1 || ! -d "$INSTALL_DIR" ]] || rm -rf "$INSTALL_DIR"
   [[ "$STATE_DIR_BEFORE" == 1 || ! -d "$STATE_DIR" ]] || rm -rf "$STATE_DIR"
+  if [[ "$SYSTEMD_WANTS_DIR_BEFORE" == 0 && -d "$SYSTEMD_WANTS_DIR" ]]; then rmdir "$SYSTEMD_WANTS_DIR" 2>/dev/null || rollback_failed=1; fi
   if [[ "$SYSTEMD_DIR_BEFORE" == 0 && -d "$SYSTEMD_DIR" ]]; then rmdir "$SYSTEMD_DIR" 2>/dev/null || rollback_failed=1; fi
   if [[ "$BOOKING_ENV_DIR_BEFORE" == 0 && -d "$BOOKING_ENV_DIR" ]]; then rmdir "$BOOKING_ENV_DIR" 2>/dev/null || rollback_failed=1; fi
   [[ "$rollback_failed" == 0 ]] || fail "$reason; rollback failed closed and requires operator repair"
